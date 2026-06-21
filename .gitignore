@@ -1,0 +1,28 @@
+# 의존성
+node_modules/
+
+# 빌드 산출물
+dist/
+build/
+
+# 환경변수
+.env
+.env.*
+!.env.example
+
+# 로그
+*.log
+npm-debug.log*
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code 로컬 설정(개인)
+.claude/settings.local.json
+
+# 은행 로고 원본 백업(트림 전) — 저장소에 불필요
+frontend/public/images/banks/_orig/

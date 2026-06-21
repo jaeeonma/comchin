@@ -1,0 +1,519 @@
+import { PrismaClient } from '@prisma/client'
+
+const prisma = new PrismaClient()
+
+// 컴친 부품 시드 — 카테고리별 실제 제품 10개씩 (총 90개).
+// 가격: 2026년 5~6월 다나와 시세 기준 조사 근사치(원). 발표 전 실값 재검수 권장.
+// ⚠️ 2026년 D램/낸드 가격 폭등(AI 메모리 수요) 반영 → 램·SSD 가격이 예년보다 매우 높음.
+// 호환성 필드: CPU/메인보드 socket, 메모리/메인보드 memoryType.
+const parts = [
+  // ============ CPU (10) ============
+  { category: 'CPU', name: 'AMD 라이젠5 7500F', brand: 'AMD', price: 165000, tdp: 65, socket: 'AM5', memoryType: 'DDR5', imageUrl: '/images/parts/AMD_Ryzen_5_7500F.jpg', specs: { cores: 6, threads: 12, boost: '5.0GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠5 9600X', brand: 'AMD', price: 330000, tdp: 65, socket: 'AM5', memoryType: 'DDR5', imageUrl: '/images/parts/AMD_Ryzen_5_9600X.jpg', specs: { cores: 6, threads: 12, boost: '5.4GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠7 7700', brand: 'AMD', price: 330000, tdp: 65, socket: 'AM5', memoryType: 'DDR5', imageUrl: '/images/parts/AMD_Ryzen_7_7700.jpg', specs: { cores: 8, threads: 16, boost: '5.3GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠7 9700X', brand: 'AMD', price: 430000, tdp: 65, socket: 'AM5', memoryType: 'DDR5', imageUrl: '/images/parts/AMD_Ryzen_7_9700X.jpg', specs: { cores: 8, threads: 16, boost: '5.5GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠7 9800X3D', brand: 'AMD', price: 595000, tdp: 120, socket: 'AM5', memoryType: 'DDR5', imageUrl: '/images/parts/AMD_Ryzen_7_9800X3D.jpg', specs: { cores: 8, threads: 16, boost: '5.2GHz', feature: '3D V-Cache' } },
+  { category: 'CPU', name: 'AMD 라이젠9 9900X', brand: 'AMD', price: 560000, tdp: 120, socket: 'AM5', memoryType: 'DDR5', imageUrl: '/images/parts/AMD_Ryzen_9_9900X.jpg', specs: { cores: 12, threads: 24, boost: '5.6GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠9 9950X', brand: 'AMD', price: 830000, tdp: 170, socket: 'AM5', memoryType: 'DDR5', imageUrl: '/images/parts/AMD_Ryzen_9_9950X.jpg', specs: { cores: 16, threads: 32, boost: '5.7GHz' } },
+  { category: 'CPU', name: '인텔 코어i5-14400F', brand: 'Intel', price: 230000, tdp: 65, socket: 'LGA1700', memoryType: 'DDR5', imageUrl: '/images/parts/Intel_Core_i5-14400F.jpg', specs: { cores: 10, threads: 16, boost: '4.7GHz' } },
+  { category: 'CPU', name: '인텔 코어 울트라5 245K', brand: 'Intel', price: 336000, tdp: 125, socket: 'LGA1851', memoryType: 'DDR5', imageUrl: '/images/parts/Intel_Core_Ultra_5_245K.jpg', specs: { cores: 14, threads: 14, boost: '5.2GHz' } },
+  { category: 'CPU', name: '인텔 코어 울트라7 265K', brand: 'Intel', price: 480000, tdp: 125, socket: 'LGA1851', memoryType: 'DDR5', imageUrl: '/images/parts/Intel_Core_Ultra_7_265K.jpg', specs: { cores: 20, threads: 20, boost: '5.5GHz' } },
+
+  // ============ CPU 쿨러 (10) ============
+  { category: 'CPU_COOLER', name: '써멀라이트 어쌔신 X120 R SE', brand: 'Thermalright', price: 22000, tdp: 0, specs: { type: '공랭', height: '155mm' } },
+  { category: 'CPU_COOLER', name: 'PCCOOLER RZ400', brand: 'PCCOOLER', price: 28000, tdp: 0, specs: { type: '공랭', height: '152mm' } },
+  { category: 'CPU_COOLER', name: '딥쿨 AK400', brand: 'DeepCool', price: 33000, tdp: 0, specs: { type: '공랭', height: '155mm' } },
+  { category: 'CPU_COOLER', name: '쿨러마스터 Hyper 212 Black', brand: 'CoolerMaster', price: 39000, tdp: 0, specs: { type: '공랭', height: '159mm' } },
+  { category: 'CPU_COOLER', name: '써멀라이트 PA120 SE', brand: 'Thermalright', price: 45000, tdp: 0, specs: { type: '공랭', height: '157mm' } },
+  { category: 'CPU_COOLER', name: '딥쿨 AK620', brand: 'DeepCool', price: 75000, tdp: 0, specs: { type: '공랭(듀얼타워)', height: '160mm' } },
+  { category: 'CPU_COOLER', name: '써멀라이트 Frozen Notte 240', brand: 'Thermalright', price: 89000, tdp: 0, specs: { type: '수랭', radiator: '240mm' } },
+  { category: 'CPU_COOLER', name: '쿨러마스터 MasterLiquid 360L Core', brand: 'CoolerMaster', price: 119000, tdp: 0, specs: { type: '수랭', radiator: '360mm' } },
+  { category: 'CPU_COOLER', name: '리안리 갈라하드 II 트리니티 360', brand: 'Lian Li', price: 139000, tdp: 0, specs: { type: '수랭', radiator: '360mm' } },
+  { category: 'CPU_COOLER', name: 'NZXT 크라켄 240 RGB', brand: 'NZXT', price: 159000, tdp: 0, specs: { type: '수랭', radiator: '240mm' } },
+
+  // ============ 메모리 (10) — 2026 폭등 시세 ============
+  { category: 'MEMORY', name: '팀그룹 DDR5-5600 16GB', brand: 'TeamGroup', price: 300000, tdp: 5, memoryType: 'DDR5', specs: { capacity: '16GB', speed: '5600MHz' } },
+  { category: 'MEMORY', name: '삼성 DDR5-5600 16GB', brand: 'Samsung', price: 320000, tdp: 5, memoryType: 'DDR5', specs: { capacity: '16GB', speed: '5600MHz' } },
+  { category: 'MEMORY', name: '마이크론 Crucial DDR5-5600 16GB', brand: 'Micron', price: 330000, tdp: 5, memoryType: 'DDR5', specs: { capacity: '16GB', speed: '5600MHz' } },
+  { category: 'MEMORY', name: 'SK하이닉스 DDR5-5600 16GB', brand: 'SK hynix', price: 350000, tdp: 5, memoryType: 'DDR5', specs: { capacity: '16GB', speed: '5600MHz' } },
+  { category: 'MEMORY', name: '삼성 DDR5-5600 32GB', brand: 'Samsung', price: 636000, tdp: 6, memoryType: 'DDR5', specs: { capacity: '32GB', speed: '5600MHz' } },
+  { category: 'MEMORY', name: '커세어 Vengeance DDR5-6000 32GB(16x2)', brand: 'Corsair', price: 690000, tdp: 8, memoryType: 'DDR5', specs: { capacity: '32GB(16x2)', speed: '6000MHz', cl: 30 } },
+  { category: 'MEMORY', name: 'G.SKILL Trident Z5 DDR5-6000 32GB(16x2)', brand: 'G.SKILL', price: 720000, tdp: 8, memoryType: 'DDR5', specs: { capacity: '32GB(16x2)', speed: '6000MHz', cl: 30 } },
+  { category: 'MEMORY', name: 'G.SKILL DDR5-6400 32GB(16x2)', brand: 'G.SKILL', price: 760000, tdp: 8, memoryType: 'DDR5', specs: { capacity: '32GB(16x2)', speed: '6400MHz' } },
+  { category: 'MEMORY', name: '삼성 DDR4-3200 16GB', brand: 'Samsung', price: 150000, tdp: 4, memoryType: 'DDR4', specs: { capacity: '16GB', speed: '3200MHz' } },
+  { category: 'MEMORY', name: '팀그룹 DDR4-3200 16GB(8x2)', brand: 'TeamGroup', price: 140000, tdp: 4, memoryType: 'DDR4', specs: { capacity: '16GB(8x2)', speed: '3200MHz' } },
+
+  // ============ 메인보드 (10) ============
+  { category: 'MOTHERBOARD', name: 'GIGABYTE B650M K', brand: 'GIGABYTE', price: 112000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B650' } },
+  { category: 'MOTHERBOARD', name: 'ASUS PRIME B650M-A II', brand: 'ASUS', price: 150000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B650' } },
+  { category: 'MOTHERBOARD', name: 'ASRock B850M PRO-A', brand: 'ASRock', price: 210000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B850' } },
+  { category: 'MOTHERBOARD', name: 'MSI MAG B650 토마호크 WIFI', brand: 'MSI', price: 245000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'B650' } },
+  { category: 'MOTHERBOARD', name: 'ASUS TUF GAMING X670E-PLUS', brand: 'ASUS', price: 360000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'X670E' } },
+  { category: 'MOTHERBOARD', name: 'ASUS PRIME B760M-A', brand: 'ASUS', price: 170000, tdp: 0, socket: 'LGA1700', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B760' } },
+  { category: 'MOTHERBOARD', name: 'MSI MAG B760M 박격포 WIFI', brand: 'MSI', price: 210000, tdp: 0, socket: 'LGA1700', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B760' } },
+  { category: 'MOTHERBOARD', name: 'MSI PRO B860M-A WIFI', brand: 'MSI', price: 230000, tdp: 0, socket: 'LGA1851', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B860' } },
+  { category: 'MOTHERBOARD', name: 'ASUS TUF GAMING B860-PLUS WIFI', brand: 'ASUS', price: 290000, tdp: 0, socket: 'LGA1851', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'B860' } },
+  { category: 'MOTHERBOARD', name: 'ASUS ROG STRIX Z890-A GAMING WIFI', brand: 'ASUS', price: 480000, tdp: 0, socket: 'LGA1851', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'Z890' } },
+
+  // ============ 그래픽카드 (10) ============
+  { category: 'GPU', name: 'GeForce RTX 4060', brand: 'NVIDIA', price: 390000, tdp: 115, specs: { vram: '8GB GDDR6', length: '245mm' } },
+  { category: 'GPU', name: 'GeForce RTX 5060', brand: 'NVIDIA', price: 480000, tdp: 145, specs: { vram: '8GB GDDR7', length: '250mm' } },
+  { category: 'GPU', name: 'GeForce RTX 5060 Ti 16GB', brand: 'NVIDIA', price: 720000, tdp: 180, specs: { vram: '16GB GDDR7', length: '300mm' } },
+  { category: 'GPU', name: 'GeForce RTX 5070', brand: 'NVIDIA', price: 1050000, tdp: 250, specs: { vram: '12GB GDDR7', length: '300mm' } },
+  { category: 'GPU', name: 'GeForce RTX 5070 Ti', brand: 'NVIDIA', price: 1380000, tdp: 300, specs: { vram: '16GB GDDR7', length: '330mm' } },
+  { category: 'GPU', name: 'GeForce RTX 5080', brand: 'NVIDIA', price: 1900000, tdp: 360, specs: { vram: '16GB GDDR7', length: '340mm' } },
+  { category: 'GPU', name: 'GeForce RTX 5090', brand: 'NVIDIA', price: 3900000, tdp: 575, specs: { vram: '32GB GDDR7', length: '360mm' } },
+  { category: 'GPU', name: 'Radeon RX 7800 XT', brand: 'AMD', price: 620000, tdp: 263, specs: { vram: '16GB GDDR6', length: '267mm' } },
+  { category: 'GPU', name: 'Radeon RX 9070', brand: 'AMD', price: 790000, tdp: 220, specs: { vram: '16GB GDDR6', length: '300mm' } },
+  { category: 'GPU', name: 'Radeon RX 9070 XT', brand: 'AMD', price: 980000, tdp: 304, specs: { vram: '16GB GDDR6', length: '330mm' } },
+
+  // ============ SSD (10) — 낸드 가격 상승 반영 ============
+  { category: 'SSD', name: '마이크론 Crucial P3 Plus 1TB', brand: 'Micron', price: 110000, tdp: 5, specs: { capacity: '1TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '키오시아 EXCERIA G2 1TB', brand: 'KIOXIA', price: 115000, tdp: 5, specs: { capacity: '1TB', interface: 'NVMe Gen3' } },
+  { category: 'SSD', name: 'WD Blue SN5000 1TB', brand: 'WD', price: 125000, tdp: 5, specs: { capacity: '1TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '삼성 990 EVO Plus 1TB', brand: 'Samsung', price: 135000, tdp: 5, specs: { capacity: '1TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: 'SK하이닉스 Platinum P41 1TB', brand: 'SK hynix', price: 160000, tdp: 6, specs: { capacity: '1TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '삼성 990 PRO 1TB', brand: 'Samsung', price: 195000, tdp: 6, specs: { capacity: '1TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: 'WD Black SN7100 2TB', brand: 'WD', price: 300000, tdp: 6, specs: { capacity: '2TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '삼성 990 PRO 2TB', brand: 'Samsung', price: 340000, tdp: 6, specs: { capacity: '2TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '솔리다임 P44 Pro 2TB', brand: 'Solidigm', price: 360000, tdp: 6, specs: { capacity: '2TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: 'SK하이닉스 Platinum P41 2TB', brand: 'SK hynix', price: 450000, tdp: 6, specs: { capacity: '2TB', interface: 'NVMe Gen4' } },
+
+  // ============ HDD (10) ============
+  { category: 'HDD', name: '시게이트 바라쿠다 1TB', brand: 'Seagate', price: 55000, tdp: 6, specs: { capacity: '1TB', rpm: 7200 } },
+  { category: 'HDD', name: '도시바 P300 2TB', brand: 'Toshiba', price: 72000, tdp: 7, specs: { capacity: '2TB', rpm: 7200 } },
+  { category: 'HDD', name: '시게이트 바라쿠다 2TB', brand: 'Seagate', price: 75000, tdp: 7, specs: { capacity: '2TB', rpm: 7200 } },
+  { category: 'HDD', name: 'WD BLUE 2TB', brand: 'WD', price: 78000, tdp: 7, specs: { capacity: '2TB', rpm: 7200 } },
+  { category: 'HDD', name: 'WD BLUE 4TB', brand: 'WD', price: 120000, tdp: 8, specs: { capacity: '4TB', rpm: 5400 } },
+  { category: 'HDD', name: '시게이트 바라쿠다 4TB', brand: 'Seagate', price: 125000, tdp: 8, specs: { capacity: '4TB', rpm: 5400 } },
+  { category: 'HDD', name: 'WD BLACK 2TB', brand: 'WD', price: 135000, tdp: 8, specs: { capacity: '2TB', rpm: 7200 } },
+  { category: 'HDD', name: '시게이트 아이언울프 4TB (NAS)', brand: 'Seagate', price: 165000, tdp: 8, specs: { capacity: '4TB', rpm: 5900, use: 'NAS' } },
+  { category: 'HDD', name: 'WD RED Plus 4TB (NAS)', brand: 'WD', price: 175000, tdp: 8, specs: { capacity: '4TB', rpm: 5400, use: 'NAS' } },
+  { category: 'HDD', name: '시게이트 바라쿠다 8TB', brand: 'Seagate', price: 245000, tdp: 9, specs: { capacity: '8TB', rpm: 5400 } },
+
+  // ============ 파워 (10) ============
+  { category: 'PSU', name: '잘만 MegaMax 600W 80+', brand: 'Zalman', price: 55000, tdp: 0, specs: { watt: 600, rating: '80+ Standard' } },
+  { category: 'PSU', name: '마이크로닉스 Classic II 풀체인지 700W 80+', brand: 'Micronics', price: 75000, tdp: 0, specs: { watt: 700, rating: '80+ Standard' } },
+  { category: 'PSU', name: '시소닉 FOCUS GX-650 골드 풀모듈러', brand: 'Seasonic', price: 115000, tdp: 0, specs: { watt: 650, rating: '80+ Gold' } },
+  { category: 'PSU', name: '안텍 NeoECO 750W 골드', brand: 'Antec', price: 125000, tdp: 0, specs: { watt: 750, rating: '80+ Gold' } },
+  { category: 'PSU', name: 'be quiet! Pure Power 12 M 750W 골드', brand: 'be quiet!', price: 130000, tdp: 0, specs: { watt: 750, rating: '80+ Gold' } },
+  { category: 'PSU', name: '커세어 RM750e 골드 풀모듈러', brand: 'Corsair', price: 135000, tdp: 0, specs: { watt: 750, rating: '80+ Gold' } },
+  { category: 'PSU', name: 'FSP HYDRO G PRO 850W 골드', brand: 'FSP', price: 145000, tdp: 0, specs: { watt: 850, rating: '80+ Gold' } },
+  { category: 'PSU', name: '시소닉 FOCUS GX-850 골드 풀모듈러', brand: 'Seasonic', price: 149000, tdp: 0, specs: { watt: 850, rating: '80+ Gold' } },
+  { category: 'PSU', name: '커세어 RM1000e 골드 풀모듈러', brand: 'Corsair', price: 195000, tdp: 0, specs: { watt: 1000, rating: '80+ Gold' } },
+  { category: 'PSU', name: '시소닉 PRIME TX-1000 티타늄', brand: 'Seasonic', price: 330000, tdp: 0, specs: { watt: 1000, rating: '80+ Titanium' } },
+
+  // ============ 케이스 (10) ============
+  { category: 'CASE', name: '앱코 SUITMASTER 미니타워', brand: 'ABKO', price: 45000, tdp: 0, specs: { form: 'mATX', gpuMax: '300mm' } },
+  { category: 'CASE', name: '마이크로닉스 EM2-MESH', brand: 'Micronics', price: 49000, tdp: 0, specs: { form: 'ATX', gpuMax: '330mm' } },
+  { category: 'CASE', name: '다크플래쉬 DLX21 메쉬', brand: 'Darkflash', price: 55000, tdp: 0, specs: { form: 'mATX', gpuMax: '320mm' } },
+  { category: 'CASE', name: '다크플래쉬 DK431', brand: 'Darkflash', price: 69000, tdp: 0, specs: { form: 'ATX', gpuMax: '370mm' } },
+  { category: 'CASE', name: '프랙탈디자인 Pop Air', brand: 'Fractal Design', price: 99000, tdp: 0, specs: { form: 'ATX', gpuMax: '405mm' } },
+  { category: 'CASE', name: '쿨러마스터 MasterBox TD500 메쉬', brand: 'CoolerMaster', price: 115000, tdp: 0, specs: { form: 'ATX', gpuMax: '410mm' } },
+  { category: 'CASE', name: '리안리 LANCOOL 216', brand: 'Lian Li', price: 125000, tdp: 0, specs: { form: 'ATX', gpuMax: '392mm' } },
+  { category: 'CASE', name: '커세어 4000D 에어플로우', brand: 'Corsair', price: 125000, tdp: 0, specs: { form: 'ATX', gpuMax: '360mm' } },
+  { category: 'CASE', name: 'NZXT H5 Flow', brand: 'NZXT', price: 135000, tdp: 0, specs: { form: 'ATX', gpuMax: '365mm' } },
+  { category: 'CASE', name: '프랙탈디자인 North', brand: 'Fractal Design', price: 189000, tdp: 0, specs: { form: 'ATX', gpuMax: '355mm' } },
+
+  // ===================== 확장 부품 =====================
+  // 이미지/가격은 네이버 쇼핑 API(scripts/enrich-from-naver.js)로 채웁니다.
+  // 호환성 스펙(소켓·DDR·코어·VRAM)은 사실 기준. 가격은 근사치, TDP는 대표값.
+
+  // ----- CPU 추가 (AMD AM5/DDR5) -----
+  { category: 'CPU', name: 'AMD 라이젠5 7600', brand: 'AMD', price: 235000, tdp: 65, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 6, threads: 12, boost: '5.1GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠5 7600X', brand: 'AMD', price: 270000, tdp: 105, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 6, threads: 12, boost: '5.3GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠7 7700X', brand: 'AMD', price: 370000, tdp: 105, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 8, threads: 16, boost: '5.4GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠7 7800X3D', brand: 'AMD', price: 480000, tdp: 120, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 8, threads: 16, boost: '5.0GHz', feature: '3D V-Cache' } },
+  { category: 'CPU', name: 'AMD 라이젠9 7900', brand: 'AMD', price: 430000, tdp: 65, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 12, threads: 24, boost: '5.4GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠9 7900X', brand: 'AMD', price: 480000, tdp: 170, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 12, threads: 24, boost: '5.6GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠9 7950X', brand: 'AMD', price: 680000, tdp: 170, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 16, threads: 32, boost: '5.7GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠9 7950X3D', brand: 'AMD', price: 790000, tdp: 120, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 16, threads: 32, boost: '5.7GHz', feature: '3D V-Cache' } },
+  { category: 'CPU', name: 'AMD 라이젠9 9950X3D', brand: 'AMD', price: 980000, tdp: 170, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 16, threads: 32, boost: '5.7GHz', feature: '3D V-Cache' } },
+  { category: 'CPU', name: 'AMD 라이젠5 8500G', brand: 'AMD', price: 200000, tdp: 65, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 6, threads: 12, boost: '5.0GHz', feature: '내장그래픽' } },
+  // ----- CPU 추가 (AMD AM4/DDR4) -----
+  { category: 'CPU', name: 'AMD 라이젠5 5600', brand: 'AMD', price: 115000, tdp: 65, socket: 'AM4', memoryType: 'DDR4', specs: { cores: 6, threads: 12, boost: '4.4GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠5 5600X', brand: 'AMD', price: 145000, tdp: 65, socket: 'AM4', memoryType: 'DDR4', specs: { cores: 6, threads: 12, boost: '4.6GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠7 5700X', brand: 'AMD', price: 175000, tdp: 65, socket: 'AM4', memoryType: 'DDR4', specs: { cores: 8, threads: 16, boost: '4.6GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠7 5700X3D', brand: 'AMD', price: 230000, tdp: 105, socket: 'AM4', memoryType: 'DDR4', specs: { cores: 8, threads: 16, boost: '4.1GHz', feature: '3D V-Cache' } },
+  { category: 'CPU', name: 'AMD 라이젠7 5800X3D', brand: 'AMD', price: 300000, tdp: 105, socket: 'AM4', memoryType: 'DDR4', specs: { cores: 8, threads: 16, boost: '4.5GHz', feature: '3D V-Cache' } },
+  // ----- CPU 추가 (인텔 LGA1700, 메모리는 보드가 결정) -----
+  { category: 'CPU', name: '인텔 코어i5-12400F', brand: 'Intel', price: 130000, tdp: 65, socket: 'LGA1700', specs: { cores: 6, threads: 12, boost: '4.4GHz' } },
+  { category: 'CPU', name: '인텔 코어i5-13400F', brand: 'Intel', price: 200000, tdp: 65, socket: 'LGA1700', specs: { cores: 10, threads: 16, boost: '4.6GHz' } },
+  { category: 'CPU', name: '인텔 코어i5-14600K', brand: 'Intel', price: 330000, tdp: 125, socket: 'LGA1700', specs: { cores: 14, threads: 20, boost: '5.3GHz' } },
+  { category: 'CPU', name: '인텔 코어i7-14700K', brand: 'Intel', price: 520000, tdp: 125, socket: 'LGA1700', specs: { cores: 20, threads: 28, boost: '5.6GHz' } },
+  { category: 'CPU', name: '인텔 코어i9-14900K', brand: 'Intel', price: 720000, tdp: 125, socket: 'LGA1700', specs: { cores: 24, threads: 32, boost: '6.0GHz' } },
+  // ----- CPU 추가 (인텔 LGA1851/DDR5) -----
+  { category: 'CPU', name: '인텔 코어 울트라9 285K', brand: 'Intel', price: 900000, tdp: 125, socket: 'LGA1851', memoryType: 'DDR5', specs: { cores: 24, threads: 24, boost: '5.7GHz' } },
+
+  // ----- 그래픽카드 추가 (NVIDIA) -----
+  { category: 'GPU', name: 'GeForce RTX 3060', brand: 'NVIDIA', price: 330000, tdp: 170, specs: { vram: '12GB GDDR6' } },
+  { category: 'GPU', name: 'GeForce RTX 4060 Ti', brand: 'NVIDIA', price: 520000, tdp: 160, specs: { vram: '8GB GDDR6' } },
+  { category: 'GPU', name: 'GeForce RTX 4070', brand: 'NVIDIA', price: 780000, tdp: 200, specs: { vram: '12GB GDDR6X' } },
+  { category: 'GPU', name: 'GeForce RTX 4070 SUPER', brand: 'NVIDIA', price: 900000, tdp: 220, specs: { vram: '12GB GDDR6X' } },
+  { category: 'GPU', name: 'GeForce RTX 4070 Ti SUPER', brand: 'NVIDIA', price: 1200000, tdp: 285, specs: { vram: '16GB GDDR6X' } },
+  { category: 'GPU', name: 'GeForce RTX 4080 SUPER', brand: 'NVIDIA', price: 1600000, tdp: 320, specs: { vram: '16GB GDDR6X' } },
+  { category: 'GPU', name: 'GeForce RTX 4090', brand: 'NVIDIA', price: 2900000, tdp: 450, specs: { vram: '24GB GDDR6X' } },
+  { category: 'GPU', name: 'GeForce RTX 5060 Ti 8GB', brand: 'NVIDIA', price: 550000, tdp: 180, specs: { vram: '8GB GDDR7' } },
+  // ----- 그래픽카드 추가 (AMD) -----
+  { category: 'GPU', name: 'Radeon RX 7600', brand: 'AMD', price: 330000, tdp: 165, specs: { vram: '8GB GDDR6' } },
+  { category: 'GPU', name: 'Radeon RX 7700 XT', brand: 'AMD', price: 500000, tdp: 245, specs: { vram: '12GB GDDR6' } },
+  { category: 'GPU', name: 'Radeon RX 7900 GRE', brand: 'AMD', price: 720000, tdp: 260, specs: { vram: '16GB GDDR6' } },
+  { category: 'GPU', name: 'Radeon RX 7900 XT', brand: 'AMD', price: 900000, tdp: 315, specs: { vram: '20GB GDDR6' } },
+  { category: 'GPU', name: 'Radeon RX 7900 XTX', brand: 'AMD', price: 1200000, tdp: 355, specs: { vram: '24GB GDDR6' } },
+
+  // ----- 메인보드 추가 (AM5/DDR5) -----
+  { category: 'MOTHERBOARD', name: 'ASRock B650M-HDV/M.2', brand: 'ASRock', price: 130000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B650' } },
+  { category: 'MOTHERBOARD', name: 'MSI PRO B650M-A WIFI', brand: 'MSI', price: 175000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B650' } },
+  { category: 'MOTHERBOARD', name: 'ASUS ROG STRIX B650E-F GAMING WIFI', brand: 'ASUS', price: 330000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'B650E' } },
+  { category: 'MOTHERBOARD', name: 'GIGABYTE B850 AORUS ELITE WIFI7', brand: 'GIGABYTE', price: 300000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'B850' } },
+  { category: 'MOTHERBOARD', name: 'ASUS ROG STRIX X870E-E GAMING WIFI', brand: 'ASUS', price: 680000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'X870E' } },
+  // ----- 메인보드 추가 (AM4/DDR4) -----
+  { category: 'MOTHERBOARD', name: 'ASUS PRIME B550M-K', brand: 'ASUS', price: 110000, tdp: 0, socket: 'AM4', memoryType: 'DDR4', specs: { form: 'mATX', chipset: 'B550' } },
+  { category: 'MOTHERBOARD', name: 'MSI MAG B550 토마호크', brand: 'MSI', price: 170000, tdp: 0, socket: 'AM4', memoryType: 'DDR4', specs: { form: 'ATX', chipset: 'B550' } },
+  { category: 'MOTHERBOARD', name: 'ASRock B450M PRO4', brand: 'ASRock', price: 90000, tdp: 0, socket: 'AM4', memoryType: 'DDR4', specs: { form: 'mATX', chipset: 'B450' } },
+  // ----- 메인보드 추가 (인텔) -----
+  { category: 'MOTHERBOARD', name: 'ASUS PRIME B760M-A D4', brand: 'ASUS', price: 160000, tdp: 0, socket: 'LGA1700', memoryType: 'DDR4', specs: { form: 'mATX', chipset: 'B760' } },
+  { category: 'MOTHERBOARD', name: 'MSI PRO B760M-P D4', brand: 'MSI', price: 150000, tdp: 0, socket: 'LGA1700', memoryType: 'DDR4', specs: { form: 'mATX', chipset: 'B760' } },
+  { category: 'MOTHERBOARD', name: 'ASUS ROG STRIX Z790-A GAMING WIFI', brand: 'ASUS', price: 430000, tdp: 0, socket: 'LGA1700', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'Z790' } },
+  { category: 'MOTHERBOARD', name: 'GIGABYTE B860M GAMING WIFI6', brand: 'GIGABYTE', price: 220000, tdp: 0, socket: 'LGA1851', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B860' } },
+
+  // ----- 메모리 추가 -----
+  { category: 'MEMORY', name: '팀그룹 DDR5-6000 32GB(16x2)', brand: 'TeamGroup', price: 650000, tdp: 8, memoryType: 'DDR5', specs: { capacity: '32GB(16x2)', speed: '6000MHz' } },
+  { category: 'MEMORY', name: '커세어 Vengeance DDR5-5600 32GB(16x2)', brand: 'Corsair', price: 640000, tdp: 8, memoryType: 'DDR5', specs: { capacity: '32GB(16x2)', speed: '5600MHz' } },
+  { category: 'MEMORY', name: 'SK하이닉스 DDR5-5600 32GB', brand: 'SK hynix', price: 660000, tdp: 6, memoryType: 'DDR5', specs: { capacity: '32GB', speed: '5600MHz' } },
+  { category: 'MEMORY', name: 'G.SKILL Trident Z5 DDR5-6000 64GB(32x2)', brand: 'G.SKILL', price: 1300000, tdp: 10, memoryType: 'DDR5', specs: { capacity: '64GB(32x2)', speed: '6000MHz' } },
+  { category: 'MEMORY', name: '삼성 DDR4-3200 32GB', brand: 'Samsung', price: 290000, tdp: 5, memoryType: 'DDR4', specs: { capacity: '32GB', speed: '3200MHz' } },
+  { category: 'MEMORY', name: 'G.SKILL Ripjaws V DDR4-3600 32GB(16x2)', brand: 'G.SKILL', price: 300000, tdp: 6, memoryType: 'DDR4', specs: { capacity: '32GB(16x2)', speed: '3600MHz' } },
+  { category: 'MEMORY', name: '팀그룹 DDR4-3200 8GB', brand: 'TeamGroup', price: 70000, tdp: 4, memoryType: 'DDR4', specs: { capacity: '8GB', speed: '3200MHz' } },
+
+  // ----- SSD 추가 -----
+  { category: 'SSD', name: '삼성 990 PRO 4TB', brand: 'Samsung', price: 650000, tdp: 7, specs: { capacity: '4TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '삼성 990 EVO Plus 2TB', brand: 'Samsung', price: 260000, tdp: 6, specs: { capacity: '2TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: 'WD Blue SN5000 2TB', brand: 'WD', price: 240000, tdp: 6, specs: { capacity: '2TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '마이크론 Crucial P3 Plus 2TB', brand: 'Micron', price: 210000, tdp: 6, specs: { capacity: '2TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '마이크론 Crucial T500 1TB', brand: 'Micron', price: 180000, tdp: 6, specs: { capacity: '1TB', interface: 'NVMe Gen4' } },
+  { category: 'SSD', name: '마이크론 Crucial T705 2TB', brand: 'Micron', price: 520000, tdp: 8, specs: { capacity: '2TB', interface: 'NVMe Gen5' } },
+  { category: 'SSD', name: '삼성 870 EVO 1TB', brand: 'Samsung', price: 140000, tdp: 3, specs: { capacity: '1TB', interface: 'SATA' } },
+  { category: 'SSD', name: '삼성 870 QVO 2TB', brand: 'Samsung', price: 220000, tdp: 3, specs: { capacity: '2TB', interface: 'SATA' } },
+
+  // ----- HDD 추가 -----
+  { category: 'HDD', name: '시게이트 바라쿠다 6TB', brand: 'Seagate', price: 185000, tdp: 8, specs: { capacity: '6TB', rpm: 5400 } },
+  { category: 'HDD', name: 'WD BLUE 6TB', brand: 'WD', price: 175000, tdp: 8, specs: { capacity: '6TB', rpm: 5400 } },
+  { category: 'HDD', name: '도시바 X300 4TB', brand: 'Toshiba', price: 135000, tdp: 9, specs: { capacity: '4TB', rpm: 7200 } },
+  { category: 'HDD', name: 'WD RED Plus 8TB (NAS)', brand: 'WD', price: 330000, tdp: 9, specs: { capacity: '8TB', rpm: 5640, use: 'NAS' } },
+  { category: 'HDD', name: '시게이트 아이언울프 8TB (NAS)', brand: 'Seagate', price: 340000, tdp: 9, specs: { capacity: '8TB', rpm: 7200, use: 'NAS' } },
+
+  // ----- 파워 추가 -----
+  { category: 'PSU', name: '마이크로닉스 Classic II 풀체인지 650W 80+', brand: 'Micronics', price: 70000, tdp: 0, specs: { watt: 650, rating: '80+ Standard' } },
+  { category: 'PSU', name: '마이크로닉스 Classic II 풀체인지 800W 80+', brand: 'Micronics', price: 90000, tdp: 0, specs: { watt: 800, rating: '80+ Standard' } },
+  { category: 'PSU', name: '시소닉 FOCUS GX-750 골드 풀모듈러', brand: 'Seasonic', price: 135000, tdp: 0, specs: { watt: 750, rating: '80+ Gold' } },
+  { category: 'PSU', name: '커세어 RM850x 골드 풀모듈러', brand: 'Corsair', price: 185000, tdp: 0, specs: { watt: 850, rating: '80+ Gold' } },
+  { category: 'PSU', name: 'be quiet! Straight Power 12 850W 플래티넘', brand: 'be quiet!', price: 230000, tdp: 0, specs: { watt: 850, rating: '80+ Platinum' } },
+  { category: 'PSU', name: '시소닉 VERTEX GX-1000 골드', brand: 'Seasonic', price: 260000, tdp: 0, specs: { watt: 1000, rating: '80+ Gold' } },
+
+  // ----- 케이스 추가 -----
+  { category: 'CASE', name: 'NZXT H7 Flow', brand: 'NZXT', price: 185000, tdp: 0, specs: { form: 'ATX', gpuMax: '400mm' } },
+  { category: 'CASE', name: '리안리 O11 다이나믹 EVO', brand: 'Lian Li', price: 230000, tdp: 0, specs: { form: 'ATX', gpuMax: '420mm' } },
+  { category: 'CASE', name: '리안리 LANCOOL 207', brand: 'Lian Li', price: 135000, tdp: 0, specs: { form: 'ATX', gpuMax: '415mm' } },
+  { category: 'CASE', name: '커세어 3500X ARGB', brand: 'Corsair', price: 160000, tdp: 0, specs: { form: 'ATX', gpuMax: '400mm' } },
+  { category: 'CASE', name: '프랙탈디자인 Pop Air Mini', brand: 'Fractal Design', price: 85000, tdp: 0, specs: { form: 'mATX', gpuMax: '365mm' } },
+  { category: 'CASE', name: '다크플래쉬 DLM21', brand: 'Darkflash', price: 50000, tdp: 0, specs: { form: 'mATX', gpuMax: '280mm' } },
+
+  // ----- CPU 쿨러 추가 -----
+  { category: 'CPU_COOLER', name: '써멀라이트 Peerless Assassin 120 SE', brand: 'Thermalright', price: 48000, tdp: 0, specs: { type: '공랭(듀얼타워)', height: '155mm' } },
+  { category: 'CPU_COOLER', name: '딥쿨 AK500', brand: 'DeepCool', price: 55000, tdp: 0, specs: { type: '공랭', height: '159mm' } },
+  { category: 'CPU_COOLER', name: '녹투아 NH-D15', brand: 'Noctua', price: 160000, tdp: 0, specs: { type: '공랭(듀얼타워)', height: '165mm' } },
+  { category: 'CPU_COOLER', name: '녹투아 NH-U12S redux', brand: 'Noctua', price: 75000, tdp: 0, specs: { type: '공랭', height: '158mm' } },
+  { category: 'CPU_COOLER', name: '아틱 Liquid Freezer III 360', brand: 'Arctic', price: 130000, tdp: 0, specs: { type: '수랭', radiator: '360mm' } },
+  { category: 'CPU_COOLER', name: 'NZXT 크라켄 360 RGB', brand: 'NZXT', price: 230000, tdp: 0, specs: { type: '수랭', radiator: '360mm' } },
+  { category: 'CPU_COOLER', name: '리안리 갈라하드 II 트리니티 240', brand: 'Lian Li', price: 110000, tdp: 0, specs: { type: '수랭', radiator: '240mm' } },
+
+  // ===================== 국내 인기 제품 추가 =====================
+  // 한국 PC 시장에서 많이 쓰이는 익숙한 제품 위주. 스펙은 사실 기준, 가격은 근사치.
+
+  // ----- CPU (보급형/인기) -----
+  { category: 'CPU', name: '인텔 코어i3-14100F', brand: 'Intel', price: 130000, tdp: 65, socket: 'LGA1700', specs: { cores: 4, threads: 8, boost: '4.7GHz' } },
+  { category: 'CPU', name: '인텔 코어i5-13500', brand: 'Intel', price: 250000, tdp: 65, socket: 'LGA1700', specs: { cores: 14, threads: 20, boost: '4.8GHz' } },
+  { category: 'CPU', name: '인텔 코어i5-13600K', brand: 'Intel', price: 330000, tdp: 125, socket: 'LGA1700', specs: { cores: 14, threads: 20, boost: '5.1GHz' } },
+  { category: 'CPU', name: '인텔 코어i9-13900K', brand: 'Intel', price: 620000, tdp: 125, socket: 'LGA1700', specs: { cores: 24, threads: 32, boost: '5.8GHz' } },
+  { category: 'CPU', name: 'AMD 라이젠5 8400F', brand: 'AMD', price: 165000, tdp: 65, socket: 'AM5', memoryType: 'DDR5', specs: { cores: 6, threads: 12, boost: '4.7GHz' } },
+
+  // ----- 그래픽카드 (보급형/인기) -----
+  { category: 'GPU', name: 'GeForce RTX 3050', brand: 'NVIDIA', price: 270000, tdp: 130, specs: { vram: '8GB GDDR6' } },
+  { category: 'GPU', name: 'GeForce RTX 3070', brand: 'NVIDIA', price: 520000, tdp: 220, specs: { vram: '8GB GDDR6' } },
+  { category: 'GPU', name: 'Radeon RX 6600', brand: 'AMD', price: 280000, tdp: 132, specs: { vram: '8GB GDDR6' } },
+  { category: 'GPU', name: 'Radeon RX 6650 XT', brand: 'AMD', price: 350000, tdp: 180, specs: { vram: '8GB GDDR6' } },
+
+  // ----- 메인보드 (인기) -----
+  { category: 'MOTHERBOARD', name: 'ASUS TUF GAMING B650-PLUS WIFI', brand: 'ASUS', price: 270000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'ATX', chipset: 'B650' } },
+  { category: 'MOTHERBOARD', name: 'MSI B650M 게이밍 플러스 WIFI', brand: 'MSI', price: 190000, tdp: 0, socket: 'AM5', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B650' } },
+  { category: 'MOTHERBOARD', name: 'ASRock B760M PRO RS', brand: 'ASRock', price: 175000, tdp: 0, socket: 'LGA1700', memoryType: 'DDR5', specs: { form: 'mATX', chipset: 'B760' } },
+
+  // ----- 메모리 (국내 인기 브랜드) -----
+  { category: 'MEMORY', name: '에센코어 KLEVV DDR5-5600 16GB', brand: 'KLEVV', price: 310000, tdp: 5, memoryType: 'DDR5', specs: { capacity: '16GB', speed: '5600MHz' } },
+  { category: 'MEMORY', name: '에센코어 KLEVV DDR4-3200 16GB', brand: 'KLEVV', price: 145000, tdp: 4, memoryType: 'DDR4', specs: { capacity: '16GB', speed: '3200MHz' } },
+  { category: 'MEMORY', name: '팀그룹 T-Force DDR5-6000 32GB(16x2)', brand: 'TeamGroup', price: 670000, tdp: 8, memoryType: 'DDR5', specs: { capacity: '32GB(16x2)', speed: '6000MHz' } },
+
+  // ----- SSD (인기) -----
+  { category: 'SSD', name: 'SK하이닉스 Platinum P31 1TB', brand: 'SK hynix', price: 150000, tdp: 5, specs: { capacity: '1TB', interface: 'NVMe Gen3' } },
+  { category: 'SSD', name: '삼성 980 1TB', brand: 'Samsung', price: 120000, tdp: 4, specs: { capacity: '1TB', interface: 'NVMe Gen3' } },
+  { category: 'SSD', name: 'WD Blue SN580 1TB', brand: 'WD', price: 120000, tdp: 5, specs: { capacity: '1TB', interface: 'NVMe Gen4' } },
+
+  // ----- 파워 (국내 인기 브랜드) -----
+  { category: 'PSU', name: '마이크로닉스 Classic II 풀체인지 500W 80+', brand: 'Micronics', price: 55000, tdp: 0, specs: { watt: 500, rating: '80+ Standard' } },
+  { category: 'PSU', name: '잘만 GigaMax 750W 80+ 브론즈', brand: 'Zalman', price: 75000, tdp: 0, specs: { watt: 750, rating: '80+ Bronze' } },
+  { category: 'PSU', name: '슈퍼플라워 LEADEX III GOLD 650W', brand: 'Super Flower', price: 120000, tdp: 0, specs: { watt: 650, rating: '80+ Gold' } },
+  { category: 'PSU', name: '슈퍼플라워 LEADEX III GOLD 750W', brand: 'Super Flower', price: 140000, tdp: 0, specs: { watt: 750, rating: '80+ Gold' } },
+
+  // ----- CPU 쿨러 (국내 인기) -----
+  { category: 'CPU_COOLER', name: '잘만 CNPS10X PERFORMA ST', brand: 'Zalman', price: 45000, tdp: 0, specs: { type: '공랭', height: '160mm' } },
+  { category: 'CPU_COOLER', name: 'PCCOOLER RZ620', brand: 'PCCOOLER', price: 42000, tdp: 0, specs: { type: '공랭(듀얼타워)', height: '157mm' } },
+  { category: 'CPU_COOLER', name: '딥쿨 AG400', brand: 'DeepCool', price: 25000, tdp: 0, specs: { type: '공랭', height: '150mm' } },
+
+  // ----- 케이스 (인기) -----
+  { category: 'CASE', name: '쿨러마스터 MasterBox Q300L', brand: 'CoolerMaster', price: 55000, tdp: 0, specs: { form: 'mATX', gpuMax: '360mm' } },
+  { category: 'CASE', name: '안텍 DF600 FLUX', brand: 'Antec', price: 85000, tdp: 0, specs: { form: 'ATX', gpuMax: '380mm' } },
+]
+
+// 부품명 → 이미지 파일명 매핑 (public/images/parts/). CPU는 위에서 inline 으로 지정됨.
+const IMAGES = {
+  // CPU 쿨러
+  '써멀라이트 어쌔신 X120 R SE': 'Thermalright_Assassin_X120_R_SE.jpg',
+  'PCCOOLER RZ400': 'PCCOOLER_RZ400.jpg',
+  '딥쿨 AK400': 'DeepCool_AK400.jpg',
+  '쿨러마스터 Hyper 212 Black': 'Cooler_Master_Hyper_212_Black.jpg',
+  '써멀라이트 PA120 SE': 'Thermalright_PA120_SE.jpg',
+  '딥쿨 AK620': 'DeepCool_AK620.jpg',
+  '써멀라이트 Frozen Notte 240': 'Thermalright_Frozen_Notte_240.jpg',
+  '쿨러마스터 MasterLiquid 360L Core': 'Cooler_Master_MasterLiquid_360L_Core.jpg',
+  '리안리 갈라하드 II 트리니티 360': 'Lian_Li_Galahad_II_Trinity_360.jpg',
+  'NZXT 크라켄 240 RGB': 'NZXT_Kraken_240_RGB.jpg',
+  // 메모리
+  '팀그룹 DDR5-5600 16GB': 'TeamGroup_DDR5-5600_16GB.jpg',
+  '삼성 DDR5-5600 16GB': 'Samsung_DDR5-5600_16GB.jpg',
+  '마이크론 Crucial DDR5-5600 16GB': 'Micron_Crucial_DDR5-5600_16GB.jpg',
+  'SK하이닉스 DDR5-5600 16GB': 'SK_hynix_DDR5-5600_16GB.jpg',
+  '삼성 DDR5-5600 32GB': 'Samsung_DDR5-5600_32GB.jpg',
+  '커세어 Vengeance DDR5-6000 32GB(16x2)': 'Corsair_Vengeance_DDR5-6000_32GB_(16x2).jpg',
+  'G.SKILL Trident Z5 DDR5-6000 32GB(16x2)': 'G.SKILL_Trident_Z5_DDR5-6000_32GB_(16x2).jpg',
+  'G.SKILL DDR5-6400 32GB(16x2)': 'G.SKILL_DDR5-6400_32GB_(16x2).jpg',
+  '삼성 DDR4-3200 16GB': 'Samsung_DDR4-3200_16GB.jpg',
+  '팀그룹 DDR4-3200 16GB(8x2)': 'TeamGroup_DDR4-3200_16GB_(8x2).jpg',
+  // 메인보드
+  'GIGABYTE B650M K': 'GIGABYTE_B650M_K.jpg',
+  'ASUS PRIME B650M-A II': 'ASUS_PRIME_B650M-A_II.jpg',
+  'ASRock B850M PRO-A': 'ASRock_B850M_PRO-A.jpg',
+  'MSI MAG B650 토마호크 WIFI': 'MSI_MAG_B650_Tomahawk_WIFI.jpg',
+  'ASUS TUF GAMING X670E-PLUS': 'ASUS_TUF_GAMING_X670E-PLUS.jpg',
+  'ASUS PRIME B760M-A': 'ASUS_PRIME_B760M-A.jpg',
+  'MSI MAG B760M 박격포 WIFI': 'MSI_MAG_B760M_Mortar_WIFI.jpg',
+  'MSI PRO B860M-A WIFI': 'MSI_PRO_B860M-A_WIFI.jpg',
+  'ASUS TUF GAMING B860-PLUS WIFI': 'ASUS_TUF_GAMING_B860-PLUS_WIFI.jpg',
+  'ASUS ROG STRIX Z890-A GAMING WIFI': 'ASUS_ROG_STRIX_Z890-A_GAMING_WIFI.jpg',
+  // 그래픽카드
+  'GeForce RTX 4060': 'NVIDIA_GeForce_RTX_4060.jpg',
+  'GeForce RTX 5060': 'NVIDIA_GeForce_RTX_5060.jpg',
+  'GeForce RTX 5060 Ti 16GB': 'NVIDIA_GeForce_RTX_5060_Ti_16GB.jpg',
+  'GeForce RTX 5070': 'NVIDIA_GeForce_RTX_5070.jpg',
+  'GeForce RTX 5070 Ti': 'NVIDIA_GeForce_RTX_5070_Ti.jpg',
+  'GeForce RTX 5080': 'NVIDIA_GeForce_RTX_5080.jpg',
+  'GeForce RTX 5090': 'NVIDIA_GeForce_RTX_5090.jpg',
+  'Radeon RX 7800 XT': 'AMD_Radeon_RX_7800_XT.jpg',
+  'Radeon RX 9070': 'AMD_Radeon_RX_9070.jpg',
+  'Radeon RX 9070 XT': 'AMD_Radeon_RX_9070_XT.jpg',
+  // SSD
+  '마이크론 Crucial P3 Plus 1TB': 'Micron_Crucial_P3_Plus_1TB.jpg',
+  '키오시아 EXCERIA G2 1TB': 'KIOXIA_EXCERIA_G2_1TB.jpg',
+  'WD Blue SN5000 1TB': 'WD_Blue_SN5000_1TB.jpg',
+  '삼성 990 EVO Plus 1TB': 'Samsung_990_EVO_Plus_1TB.jpg',
+  'SK하이닉스 Platinum P41 1TB': 'SK_hynix_Platinum_P41_1TB.jpg',
+  '삼성 990 PRO 1TB': 'Samsung_990_PRO_1TB.jpg',
+  'WD Black SN7100 2TB': 'WD_Black_SN7100_2TB.jpg',
+  '삼성 990 PRO 2TB': 'Samsung_990_PRO_2TB.jpg',
+  '솔리다임 P44 Pro 2TB': 'Solidigm_P44_Pro_2TB.jpg',
+  'SK하이닉스 Platinum P41 2TB': 'SK_hynix_Platinum_P41_2TB.jpg',
+  // HDD
+  '시게이트 바라쿠다 1TB': 'Seagate_BarraCuda_1TB.jpg',
+  '도시바 P300 2TB': 'Toshiba_P300_2TB.jpg',
+  '시게이트 바라쿠다 2TB': 'Seagate_BarraCuda_2TB.jpg',
+  'WD BLUE 2TB': 'WD_Blue_2TB.jpg',
+  'WD BLUE 4TB': 'WD_Blue_4TB.jpg',
+  '시게이트 바라쿠다 4TB': 'Seagate_BarraCuda_4TB.jpg',
+  'WD BLACK 2TB': 'WD_Black_2TB.jpg',
+  '시게이트 아이언울프 4TB (NAS)': 'Seagate_IronWolf_4TB_(NAS).jpg',
+  'WD RED Plus 4TB (NAS)': 'WD_Red_Plus_4TB_(NAS).jpg',
+  '시게이트 바라쿠다 8TB': 'Seagate_BarraCuda_8TB.jpg',
+  // 파워
+  '잘만 MegaMax 600W 80+': 'Zalman_MegaMax_600W_80+.jpg',
+  '마이크로닉스 Classic II 풀체인지 700W 80+': 'Micronics_Classic_II_Full_Change_700W_80+.jpg',
+  '시소닉 FOCUS GX-650 골드 풀모듈러': 'Seasonic_FOCUS_GX-650_Gold_Full_Modular.jpg',
+  '안텍 NeoECO 750W 골드': 'Antec_NeoECO_750W_Gold.jpg',
+  'be quiet! Pure Power 12 M 750W 골드': 'be_quiet!_Pure_Power_12_M_750W_Gold.jpg',
+  '커세어 RM750e 골드 풀모듈러': 'Corsair_RM750e_Gold_Full_Modular.jpg',
+  'FSP HYDRO G PRO 850W 골드': 'FSP_HYDRO_G_PRO_850W_Gold.jpg',
+  '시소닉 FOCUS GX-850 골드 풀모듈러': 'Seasonic_FOCUS_GX-850_Gold_Full_Modular.jpg',
+  '커세어 RM1000e 골드 풀모듈러': 'Corsair_RM1000e_Gold_Full_Modular.jpg',
+  '시소닉 PRIME TX-1000 티타늄': 'Seasonic_PRIME TX-1000_Titanium.jpg',
+  // 케이스
+  '앱코 SUITMASTER 미니타워': 'ABKO_SUITMASTER_Mini_Tower.jpg',
+  '마이크로닉스 EM2-MESH': 'Micronics_EM2-MESH.jpg',
+  '다크플래쉬 DLX21 메쉬': 'DarkFlash_DLX21_Mesh.jpg',
+  '다크플래쉬 DK431': 'DarkFlash_DK431.jpg',
+  '프랙탈디자인 Pop Air': 'Fractal_Design_Pop_Air.jpg',
+  '쿨러마스터 MasterBox TD500 메쉬': 'Cooler_Master_MasterBox_TD500_Mesh.jpg',
+  '리안리 LANCOOL 216': 'Lian_Li_LANCOOL_216.jpg',
+  '커세어 4000D 에어플로우': 'Corsair_4000D_Airflow.jpg',
+  'NZXT H5 Flow': 'NZXT_H5_Flow.jpg',
+  '프랙탈디자인 North': 'Fractal_Design_North.jpg',
+  // ----- 확장/국내 인기 제품 이미지 (직접 추가) -----
+  // CPU
+  'AMD 라이젠5 5600': 'AMD_Ryzen_5_5600.jpg',
+  '인텔 코어i3-14100F': 'Intel_Core_i3-14100F.jpg',
+  '인텔 코어i5-12400F': 'Intel_Core_i5-12400F.jpg',
+  'AMD 라이젠5 8400F': 'AMD_Ryzen_5_8400F.jpg',
+  'AMD 라이젠7 5700X': 'AMD_Ryzen_7_5700X.jpg',
+  '인텔 코어i5-13400F': 'Intel_Core_i5-13400F.jpg',
+  'AMD 라이젠5 8500G': 'AMD_Ryzen_5_8500G.jpg',
+  'AMD 라이젠7 5700X3D': 'AMD_Ryzen_7_5700X3D.jpg',
+  'AMD 라이젠5 7600': 'AMD_Ryzen_5_7600.jpg',
+  '인텔 코어i5-13500': 'Intel_Core_i5-13500.jpg',
+  'AMD 라이젠5 7600X': 'AMD_Ryzen_5_7600X.jpg',
+  'AMD 라이젠7 5800X3D': 'AMD_Ryzen_7_5800X3D.jpg',
+  '인텔 코어i5-13600K': 'Intel_Core_i5-13600K.jpg',
+  '인텔 코어i5-14600K': 'Intel_Core_i5-14600K.jpg',
+  'AMD 라이젠7 7700X': 'AMD_Ryzen_7_7700X.jpg',
+  'AMD 라이젠9 7900': 'AMD_Ryzen_9_7900.jpg',
+  'AMD 라이젠7 7800X3D': 'AMD_Ryzen_7_7800X3D.jpg',
+  'AMD 라이젠9 7900X': 'AMD_Ryzen_9_7900X.jpg',
+  '인텔 코어i7-14700K': 'Intel_Core_i7-14700K.jpg',
+  '인텔 코어i9-13900K': 'Intel_Core_i9-13900K.jpg',
+  'AMD 라이젠9 7950X': 'AMD_Ryzen_9_7950X.jpg',
+  '인텔 코어i9-14900K': 'Intel_Core_i9-14900K.jpg',
+  'AMD 라이젠9 7950X3D': 'AMD_Ryzen_9_7950X3D.jpg',
+  '인텔 코어 울트라9 285K': 'Intel_Core_Ultra_9_285K.jpg',
+  'AMD 라이젠9 9950X3D': 'AMD_Ryzen_9_9950X3D.jpg',
+  // CPU 쿨러
+  '딥쿨 AG400': 'DeepCool_AG400.jpg',
+  'PCCOOLER RZ620': 'PCCOOLER_RZ620.jpg',
+  '잘만 CNPS10X PERFORMA ST': 'Zalman_CNPS10X_PERFORMA_ST.jpg',
+  '써멀라이트 Peerless Assassin 120 SE': 'Thermalright_Peerless_Assassin_120_SE.jpg',
+  '딥쿨 AK500': 'DeepCool_AK500.jpg',
+  '녹투아 NH-U12S redux': 'Noctua_NH-U12S_redux.jpg',
+  '리안리 갈라하드 II 트리니티 240': 'Lian_Li_Galahad_II_Trinity_240.jpg',
+  '아틱 Liquid Freezer III 360': 'Arctic_Liquid_Freezer_III_360.jpg',
+  '녹투아 NH-D15': 'Noctua_NH-D15.jpg',
+  'NZXT 크라켄 360 RGB': 'NZXT_Kraken_360_RGB.jpg',
+  // 메모리
+  '팀그룹 DDR4-3200 8GB': 'TeamGroup_DDR4-3200_8GB.jpg',
+  '에센코어 KLEVV DDR4-3200 16GB': 'Essencore_KLEVV_DDR4-3200_16GB.jpg',
+  '삼성 DDR4-3200 32GB': 'Samsung_DDR4-3200_32GB.jpg',
+  'G.SKILL Ripjaws V DDR4-3600 32GB(16x2)': 'G.SKILL_Ripjaws_V_DDR4-3600_32GB_(16x2).jpg',
+  '에센코어 KLEVV DDR5-5600 16GB': 'Essencore_KLEVV_DDR5-5600_16GB.jpg',
+  '커세어 Vengeance DDR5-5600 32GB(16x2)': 'Corsair_Vengeance_DDR5-5600_32GB_(16x2).jpg',
+  '팀그룹 DDR5-6000 32GB(16x2)': 'TeamGroup_DDR5-6000_32GB_(16x2).jpg',
+  'SK하이닉스 DDR5-5600 32GB': 'SK_hynix_DDR5-5600_32GB.jpg',
+  '팀그룹 T-Force DDR5-6000 32GB(16x2)': 'TeamGroup_T-Force_DDR5-6000_32GB_(16x2).jpg',
+  'G.SKILL Trident Z5 DDR5-6000 64GB(32x2)': 'G.SKILL_Trident_Z5_DDR5-6000_64GB_(32x2).jpg',
+  // 메인보드
+  'ASRock B450M PRO4': 'ASRock_B450M_PRO4.jpg',
+  'ASUS PRIME B550M-K': 'ASUS_PRIME_B550M-K.jpg',
+  'ASRock B650M-HDV/M.2': 'ASRock_B650M-HDV_M.2.jpg',
+  'MSI PRO B760M-P D4': 'MSI_PRO_B760M-P_D4.jpg',
+  'ASUS PRIME B760M-A D4': 'ASUS_PRIME_B760M-A_D4.jpg',
+  'MSI MAG B550 토마호크': 'MSI_MAG_B550_Tomahawk.jpg',
+  'ASRock B760M PRO RS': 'ASRock_B760M_PRO_RS.jpg',
+  'MSI PRO B650M-A WIFI': 'MSI_PRO_B650M-A_WIFI.jpg',
+  'MSI B650M 게이밍 플러스 WIFI': 'MSI_B650M_Gaming_Plus_WIFI.jpg',
+  'GIGABYTE B860M GAMING WIFI6': 'GIGABYTE_B860M_GAMING_WIFI6.jpg',
+  'ASUS TUF GAMING B650-PLUS WIFI': 'ASUS_TUF_GAMING_B650-PLUS_WIFI.jpg',
+  'GIGABYTE B850 AORUS ELITE WIFI7': 'GIGABYTE_B850_AORUS_ELITE_WIFI7.jpg',
+  'ASUS ROG STRIX B650E-F GAMING WIFI': 'ASUS_ROG_STRIX_B650E-F_GAMING_WIFI.jpg',
+  'ASUS ROG STRIX Z790-A GAMING WIFI': 'ASUS_ROG_STRIX_Z790-A_GAMING_WIFI.jpg',
+  'ASUS ROG STRIX X870E-E GAMING WIFI': 'ASUS_ROG_STRIX_X870E-E_GAMING_WIFI.jpg',
+  // 그래픽카드
+  'GeForce RTX 3050': 'NVIDIA_GeForce_RTX_3050.jpg',
+  'Radeon RX 6600': 'AMD_Radeon_RX_6600.jpg',
+  'GeForce RTX 3060': 'NVIDIA_GeForce_RTX_3060.jpg',
+  'Radeon RX 7600': 'AMD_Radeon_RX_7600.jpg',
+  'Radeon RX 6650 XT': 'AMD_Radeon_RX_6650_XT.jpg',
+  'Radeon RX 7700 XT': 'AMD_Radeon_RX_7700_XT.jpg',
+  'GeForce RTX 3070': 'NVIDIA_GeForce_RTX_3070.jpg',
+  'GeForce RTX 4060 Ti': 'NVIDIA_GeForce_RTX_4060_Ti.jpg',
+  'GeForce RTX 5060 Ti 8GB': 'NVIDIA_GeForce_RTX_5060_Ti_8GB.jpg',
+  'Radeon RX 7900 GRE': 'AMD_Radeon_RX_7900_GRE.jpg',
+  'GeForce RTX 4070': 'NVIDIA_GeForce_RTX_4070.jpg',
+  'GeForce RTX 4070 SUPER': 'NVIDIA_GeForce_RTX_4070_SUPER.jpg',
+  'Radeon RX 7900 XT': 'AMD_Radeon_RX_7900_XT.jpg',
+  'GeForce RTX 4070 Ti SUPER': 'NVIDIA_GeForce_RTX_4070_Ti_SUPER.jpg',
+  'Radeon RX 7900 XTX': 'AMD_Radeon_RX_7900_XTX.jpg',
+  'GeForce RTX 4080 SUPER': 'NVIDIA_GeForce_RTX_4080_SUPER.jpg',
+  'GeForce RTX 4090': 'NVIDIA_GeForce_RTX_4090.jpg',
+  // SSD
+  'WD Blue SN580 1TB': 'WD_Blue_SN580_1TB.jpg',
+  '삼성 980 1TB': 'Samsung_980_1TB.jpg',
+  '삼성 870 EVO 1TB': 'Samsung_870_EVO_1TB.jpg',
+  'SK하이닉스 Platinum P31 1TB': 'SK_hynix_Platinum_P31_1TB.jpg',
+  '마이크론 Crucial T500 1TB': 'Micron_Crucial_T500_1TB.jpg',
+  '마이크론 Crucial P3 Plus 2TB': 'Micron_Crucial_P3_Plus_2TB.jpg',
+  '삼성 870 QVO 2TB': 'Samsung_870_QVO_2TB.jpg',
+  'WD Blue SN5000 2TB': 'WD_Blue_SN5000_2TB.png',
+  '삼성 990 EVO Plus 2TB': 'Samsung_990_EVO_Plus_2TB.jpg',
+  '마이크론 Crucial T705 2TB': 'Micron_Crucial_T705_2TB.jpg',
+  '삼성 990 PRO 4TB': 'Samsung_990_PRO_4TB.jpg',
+  // HDD
+  '도시바 X300 4TB': 'Toshiba_X300_4TB.jpg',
+  'WD BLUE 6TB': 'WD_Blue_6TB.jpg',
+  '시게이트 바라쿠다 6TB': 'Seagate_BarraCuda_6TB.jpg',
+  'WD RED Plus 8TB (NAS)': 'WD_Red_Plus_8TB_(NAS).jpg',
+  '시게이트 아이언울프 8TB (NAS)': 'Seagate_IronWolf_8TB_(NAS).jpg',
+  // 파워
+  '마이크로닉스 Classic II 풀체인지 500W 80+': 'Micronics_Classic_II_Full_Change_500W_80+.jpg',
+  '마이크로닉스 Classic II 풀체인지 650W 80+': 'Micronics_Classic_II_Full_Change_650W_80+.jpg',
+  '잘만 GigaMax 750W 80+ 브론즈': 'Zalman_GigaMax_750W_80+_Bronze.jpg',
+  '마이크로닉스 Classic II 풀체인지 800W 80+': 'Micronics_Classic_II_Full_Change_800W_80+.jpg',
+  '슈퍼플라워 LEADEX III GOLD 650W': 'SuperFlower_LEADEX_III_GOLD_650W.jpg',
+  '시소닉 FOCUS GX-750 골드 풀모듈러': 'Seasonic_FOCUS_GX-750_Gold_Full_Modular.jpg',
+  '슈퍼플라워 LEADEX III GOLD 750W': 'SuperFlower_LEADEX_III_GOLD_750W.jpg',
+  '커세어 RM850x 골드 풀모듈러': 'Corsair_RM850x_Gold_Full_Modular.jpg',
+  'be quiet! Straight Power 12 850W 플래티넘': 'be_quiet!_Straight_Power_12_850W_Platinum.jpg',
+  // 케이스
+  '다크플래쉬 DLM21': 'DarkFlash_DLM21.jpg',
+  '쿨러마스터 MasterBox Q300L': 'Cooler_Master_MasterBox_Q300L.jpg',
+  '안텍 DF600 FLUX': 'Antec_DF600_FLUX.jpg',
+  '프랙탈디자인 Pop Air Mini': 'Fractal_Design_Pop_Air_Mini.jpg',
+  '리안리 LANCOOL 207': 'Lian_Li_LANCOOL_207.jpg',
+  '커세어 3500X ARGB': 'Corsair_3500X_ARGB.jpg',
+  'NZXT H7 Flow': 'NZXT_H7_Flow.jpg',
+  '리안리 O11 다이나믹 EVO': 'Lian_Li_O11_Dynamic_EVO.jpg',
+  // 추가 보완
+  'AMD 라이젠5 5600X': 'AMD_Ryzen_5_5600X.jpg',
+  '시소닉 VERTEX GX-1000 골드': 'Seasonic_VERTEX_GX-1000_Gold.jpg',
+}
+
+// 각 부품에 imageUrl 연결 (inline 우선, 없으면 매핑). 파일명 공백 등은 encodeURI 처리.
+const partsWithImages = parts.map((p) => {
+  const file = IMAGES[p.name]
+  return {
+    ...p,
+    imageUrl: p.imageUrl ?? (file ? encodeURI(`/images/parts/${file}`) : null),
+  }
+})
+
+async function main() {
+  console.log('🌱 시드 시작...')
+  // 멱등성: 기존 부품/연결 정리 후 재삽입
+  await prisma.buildPart.deleteMany()
+  await prisma.part.deleteMany()
+  const result = await prisma.part.createMany({ data: partsWithImages })
+  const withImg = partsWithImages.filter((p) => p.imageUrl).length
+  console.log(`✅ 부품 ${result.count}개 삽입 완료 (이미지 연결 ${withImg}개)`)
+}
+
+main()
+  .catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

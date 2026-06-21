@@ -1,0 +1,124 @@
+@import 'tailwindcss';
+
+/* 컴친 - 기본(다크) 테마 토큰. 계획서: 다크 테마 기반 깔끔한 UI */
+@theme {
+  --color-bg: #0f1115;
+  --color-surface: #161922;
+  --color-surface-2: #1e222e;
+  --color-border: #2a2f3a;
+  --color-text: #e5e7eb;
+  --color-muted: #9ca3af;
+  --color-brand: #6366f1;
+  --color-brand-hover: #4f46e5;
+}
+
+/* 라이트 테마 오버라이드 (html[data-theme="light"]) */
+[data-theme='light'] {
+  --color-bg: #f4f5f7;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef0f3;
+  --color-border: #d9dce1;
+  --color-text: #1a1c20;
+  --color-muted: #6b7280;
+  --color-brand: #4f46e5;
+  --color-brand-hover: #4338ca;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+/* 헤더가 접힐 때 브라우저의 스크롤 앵커링이 스크롤 위치를 되돌려
+   임계점에서 헤더가 통통 튀는(토글 반복) 문제를 막는다. */
+html,
+body {
+  overflow-anchor: none;
+}
+
+/* 전체 페이지 요소·글씨를 비례 확대 (rem 기반이라 한 번에 키워짐).
+   메인 슬라이드 배너는 뷰포트 폭·비율 기반이라 영향 없음. */
+html {
+  font-size: 112.5%; /* 기본 16px → 18px */
+}
+
+/* 로고: 다크 테마에서 진한 글자가 묻히므로 색 반전(글자는 밝게, 아이콘은 파란색 유지) */
+[data-theme='dark'] .logo-img,
+[data-theme='dark'] .gemini-logo {
+  filter: invert(1) hue-rotate(180deg);
+}
+
+/* 컴친 팁 문구 전환 (살짝 페이드+슬라이드로 눈에 들어오게) */
+@keyframes tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 구매하기 팝업 등장 (재미 요소 — 3D PC 본체는 Three.js로 렌더) */
+@keyframes pc-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 스크롤바 숨김 — 스크롤 동작은 그대로, 디자인상 깔끔하게 (요청) */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* 구형 Edge/IE */
+}
+*::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none; /* Chrome/Safari/Edge */
+}
+
+/* 특정 영역에선 스크롤바를 다시 보이게 (예: 업그레이드 존 부품 선택 목록).
+   universal(*) 규칙보다 우선순위가 높아 스크롤바가 표시된다. */
+.show-scrollbar {
+  scrollbar-width: thin; /* Firefox */
+  -ms-overflow-style: auto;
+  scrollbar-color: var(--color-border) transparent;
+}
+.show-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+.show-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 9999px;
+}
+.show-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-muted);
+}
+.show-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden; /* 전체폭(풀블리드) 배너가 가로 스크롤 만들지 않도록 */
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: system-ui, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic',
+    Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}

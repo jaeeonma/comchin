@@ -1,0 +1,123 @@
+// 컴친(컴퓨터 친구) - Prisma 스키마 (초안)
+// 계획서 8장 DB 설계 초안 반영.
+// 부품은 우선 단일 Part 테이블 + category enum 으로 시작 (결정 대기 항목이었으나,
+// 호환성 체크에 필요한 핵심 스펙만 다루는 현 범위에서는 단일 테이블이 단순/충분).
+// 추후 카테고리별 세부 스펙이 늘어나면 분리 검토.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PartCategory {
+  CPU
+  CPU_COOLER
+  MEMORY
+  MOTHERBOARD
+  GPU
+  SSD
+  HDD
+  PSU
+  CASE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String? // bcrypt 해시 (구글 전용 계정은 비밀번호 미설정 → null)
+  nickname  String?
+  builds    Build[]
+  payments  PaymentMethod[]
+  orders    Payment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// 결제수단(계좌/카드) — 포트폴리오용. 번호는 조회 시 절반을 * 로 가려서 내려준다.
+model PaymentMethod {
+  id         String   @id @default(cuid())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String
+  type       String // 'account'(계좌) | 'card'(카드)
+  bank       String // 은행사 / 카드사
+  number     String // 계좌/카드 번호
+  holderName String // 예금주/카드주
+  phone      String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@map("payment_methods")
+}
+
+// 결제 이력 — 포트폴리오용. 결제수단이 나중에 삭제돼도 남도록 결제 시점 정보를 스냅샷으로 저장.
+model Payment {
+  id           String   @id @default(cuid())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId       String
+  amount       Int // 결제 금액(원)
+  summary      String // 구매 내용 (예: "RTX 5070 게이밍 PC", "장바구니 2종 (3개)")
+  methodType   String // 'account' | 'card' (스냅샷)
+  methodBank   String // 은행사/카드사 (스냅샷)
+  numberMasked String // 가린 번호 (스냅샷)
+  details      Json? // 직접 견적 구매 시 부품 내역 [{ category, name, price }]
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@map("payments")
+}
+
+model Part {
+  id        String       @id @default(cuid())
+  category  PartCategory
+  name      String
+  brand     String?
+  price     Int // 입력 시점 기준 가격(원), 수동 업데이트 (계획서 4장 노트)
+  tdp       Int          @default(0) // 전력 소비량(W) — 총 전력 계산용
+  imageUrl  String?
+
+  // 호환성 체크용 스펙 (계획서 6장)
+  // CPU/메인보드: 소켓 일치 / 메모리/메인보드: DDR 세대
+  socket     String? // 예: "AM5", "LGA1851"
+  memoryType String? // 예: "DDR4", "DDR5"
+
+  // 그 외 카테고리별 부가 스펙은 JSON 으로 유연하게 보관
+  specs Json?
+
+  buildParts BuildPart[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([category])
+  @@map("parts")
+}
+
+model Build {
+  id        String      @id @default(cuid())
+  name      String      @default("내 견적")
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  parts     BuildPart[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([userId])
+  @@map("builds")
+}
+
+// 견적 ↔ 부품 연결 (M:N)
+model BuildPart {
+  id      String @id @default(cuid())
+  build   Build  @relation(fields: [buildId], references: [id], onDelete: Cascade)
+  buildId String
+  part    Part   @relation(fields: [partId], references: [id])
+  partId  String
+
+  @@unique([buildId, partId])
+  @@map("build_parts")
+}
