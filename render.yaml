@@ -1,0 +1,25 @@
+# Render Blueprint — 단일 웹 서비스(Express가 React 빌드까지 서빙)
+# DB는 외부 Neon(PostgreSQL)을 쓰므로 DATABASE_URL 은 대시보드에서 직접 입력(sync:false).
+services:
+  - type: web
+    name: comchin
+    runtime: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Neon 연결 문자열 — 대시보드에서 입력
+      - key: DATABASE_URL
+        sync: false
+      # 로그인 토큰 서명 키 — Render가 자동 생성
+      - key: JWT_SECRET
+        generateValue: true
+      # Gemini AI 비서 키 — 대시보드에서 입력
+      - key: GEMINI_API_KEY
+        sync: false
+      # (선택) 구글 로그인 — 없으면 이메일 로그인만 동작
+      - key: GOOGLE_CLIENT_ID
+        sync: false

@@ -10,6 +10,9 @@
   },
   "scripts": {
     "db:seed": "node prisma/seed.js",
+    "db:export": "node prisma/export-parts.js",
+    "db:import": "node prisma/import-parts.js",
+    "db:push": "prisma db push --skip-generate",
     "enrich:naver": "node scripts/enrich-from-naver.js",
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
@@ -28,12 +31,12 @@
     "express": "^4.21.2",
     "google-auth-library": "^10.7.0",
     "jimp": "^1.6.1",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "prisma": "^6.2.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
     "eslint": "^9.18.0",
-    "globals": "^15.14.0",
-    "prisma": "^6.2.1"
+    "globals": "^15.14.0"
   }
 }

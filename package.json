@@ -1,0 +1,12 @@
+{
+  "name": "comchin",
+  "version": "1.0.0",
+  "private": true,
+  "description": "컴친(컴퓨터 친구) — PC 견적/쇼핑 웹앱 (모노레포: frontend + backend)",
+  "scripts": {
+    "build": "npm --prefix frontend ci --include=dev && npm --prefix frontend run build && npm --prefix backend ci && npm --prefix backend run prisma:generate && npm --prefix backend run db:push && npm --prefix backend run db:import",
+    "start": "npm --prefix backend start",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev"
+  }
+}

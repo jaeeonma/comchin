@@ -89,7 +89,13 @@
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{console.log\\(JSON.parse\\(d\\).reply.slice\\(0,600\\)\\)}catch\\(e\\){console.log\\('RAW',d.slice\\(0,200\\)\\)}}\\)\")",
       "Bash(curl -s -o /dev/null -w \"backend health: %{http_code}\\\\n\" http://localhost:4000/api/health)",
       "Bash(curl -s -X POST http://localhost:4000/api/ai/chat -H \"Content-Type: application/json\" -d '{\"messages\":[]}')",
-      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{console.log\\(JSON.parse\\(d\\)\\)}catch\\(e\\){console.log\\(d\\)}}\\)\")"
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{console.log\\(JSON.parse\\(d\\)\\)}catch\\(e\\){console.log\\(d\\)}}\\)\")",
+      "Bash(node --input-type=module -e \"import {prisma} from './src/lib/prisma.js'; for \\(const m of ['part','user','build','paymentMethod','payment']\\){try{console.log\\(m, await prisma[m].count\\(\\)\\)}catch\\(e\\){console.log\\(m,'-',e.message.slice\\(0,40\\)\\)}} process.exit\\(0\\)\")",
+      "Bash(node prisma/export-parts.js)",
+      "Bash(node -e \"const l=require\\('./package-lock.json'\\); const r=l.packages['']; console.log\\('deps에 prisma:', !!\\(r.dependencies&&r.dependencies.prisma\\), '| devDeps에 prisma:', !!\\(r.devDependencies&&r.devDependencies.prisma\\)\\)\")",
+      "Bash(curl -s http://localhost:4000/)",
+      "Bash(curl -s -o /dev/null -w \"GET /parts → %{http_code}\\\\n\" http://localhost:4000/parts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:4000/api/parts?category=CPU\")"
     ]
   }
 }
