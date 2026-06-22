@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, NavLink } from 'react-router-dom'
 import ThemeToggle from './ThemeToggle'
 import Logo from './Logo'
@@ -271,9 +272,10 @@ export default function Navbar() {
         </ul>
       </nav>
 
-      {/* ============ 모바일 드로어 ============ */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden">
+      {/* ============ 모바일 드로어 (body 로 portal — 헤더의 backdrop-filter containing block 회피) ============ */}
+      {menuOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setMenuOpen(false)} />
           {/* 링크(앵커)를 누르면 드로어 자동 닫기 — 이벤트 위임 */}
           <div
@@ -379,8 +381,9 @@ export default function Navbar() {
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </header>
   )
 }
