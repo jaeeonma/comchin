@@ -37,19 +37,19 @@ export default function HomePage() {
       <TipCard tips={GENERAL_TIPS} interval={6000} />
 
       {/* AI 견적 유도 배너 */}
-      <section className="flex flex-col items-center justify-between gap-4 rounded-2xl border border-border bg-surface-2 p-6 sm:flex-row">
-        <div className="flex items-center gap-4">
+      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-surface-2 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="flex items-start gap-3 sm:items-center">
           {/* 제미나이 로고 */}
           <img
             src="/images/logos/Gemini_logo.png"
             alt="Gemini"
-            className="gemini-logo h-9 w-auto shrink-0 object-contain"
+            className="gemini-logo h-6 w-auto shrink-0 object-contain sm:h-9"
             onError={(e) => {
               e.currentTarget.style.display = 'none'
             }}
           />
-          <div>
-            <h2 className="text-lg font-bold">어떤 부품을 골라야 할지 모르겠나요?</h2>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold sm:text-lg">어떤 부품을 골라야 할지 모르겠나요?</h2>
             <p className="mt-1 text-sm text-muted">
               컴친 AI가 부품 호환성·병목·주의할 점을 실시간으로 알려드려요.
             </p>
@@ -58,7 +58,7 @@ export default function HomePage() {
         <button
           type="button"
           onClick={openChat}
-          className="whitespace-nowrap rounded-md bg-brand px-5 py-2.5 font-semibold text-white hover:bg-brand-hover"
+          className="w-full shrink-0 whitespace-nowrap rounded-md bg-brand px-5 py-2.5 font-semibold text-white hover:bg-brand-hover sm:w-auto"
         >
           AI 견적 시작하기
         </button>

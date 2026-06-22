@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useBuildStore, ESSENTIAL_CATEGORIES, CATEGORIES } from '../store/useBuildStore'
 import { useCartStore } from '../store/useCartStore'
@@ -6,6 +6,7 @@ import { useFavoriteStore } from '../store/useFavoriteStore'
 import { useSavedBuildStore } from '../store/useSavedBuildStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { usePaymentStore } from '../store/usePaymentStore'
+import { useAiStore } from '../store/useAiStore'
 import BuyPlayModal from './BuyPlayModal'
 import CartFromSavedModal from './CartFromSavedModal'
 import CheckoutModal from './CheckoutModal'
@@ -36,6 +37,13 @@ export default function PurchaseBar({ basePrice = 0, includeBuild = true, playfu
 
   const [showPlay, setShowPlay] = useState(false)
   const [showCheckout, setShowCheckout] = useState(false)
+
+  // 이 바가 화면에 있는 동안 우하단 AI 버튼을 위로 띄우게 표시(겹침 방지)
+  const setBottomBar = useAiStore((s) => s.setBottomBar)
+  useEffect(() => {
+    setBottomBar(true)
+    return () => setBottomBar(false)
+  }, [setBottomBar])
 
   // 직접 견적에서는 필수 구성 부품(추가 구성 제외)을 모두 골라야 구매하기 활성화
   const essentialReady = ESSENTIAL_CATEGORIES.every((c) => selectedParts[c])

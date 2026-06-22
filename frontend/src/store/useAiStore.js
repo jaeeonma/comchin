@@ -6,4 +6,8 @@ export const useAiStore = create((set) => ({
   openChat: () => set({ open: true }),
   closeChat: () => set({ open: false }),
   toggle: () => set((s) => ({ open: !s.open })),
+
+  // 하단 고정 구매바(PurchaseBar)가 화면에 있으면 true → 우하단 AI 버튼을 위로 띄워 안 겹치게
+  bottomBar: false,
+  setBottomBar: (v) => set({ bottomBar: v }),
 }))

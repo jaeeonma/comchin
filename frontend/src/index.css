@@ -112,6 +112,7 @@ html {
 body {
   margin: 0;
   overflow-x: hidden; /* 전체폭(풀블리드) 배너가 가로 스크롤 만들지 않도록 */
+  word-break: keep-all; /* 한글이 단어 중간에서 줄바꿈되지 않게(모바일 가독성) */
   background-color: var(--color-bg);
   color: var(--color-text);
   font-family: system-ui, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic',

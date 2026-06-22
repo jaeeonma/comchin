@@ -19,6 +19,7 @@ const SUGGESTIONS = ['80만원대 게이밍 PC 추천해줘', '사무용 견적 
 export default function AiAssistant() {
   const open = useAiStore((s) => s.open)
   const toggle = useAiStore((s) => s.toggle)
+  const bottomBar = useAiStore((s) => s.bottomBar) // 하단 구매바 있으면 위로 띄움
   const [messages, setMessages] = useState([GREETING])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -72,7 +73,9 @@ export default function AiAssistant() {
         type="button"
         onClick={toggle}
         aria-label="컴친 AI 비서 열기"
-        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-xl transition-transform hover:scale-105 active:scale-95"
+        className={`fixed right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-xl transition-all hover:scale-105 active:scale-95 ${
+          bottomBar ? 'bottom-32' : 'bottom-6'
+        }`}
       >
         {open ? (
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="h-6 w-6">
@@ -91,7 +94,11 @@ export default function AiAssistant() {
 
       {/* 채팅 패널 */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-40 flex h-128 max-h-[calc(100vh-8rem)] w-88 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl">
+        <div
+          className={`fixed right-6 z-40 flex h-128 max-h-[calc(100vh-8rem)] w-88 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl ${
+            bottomBar ? 'bottom-48' : 'bottom-24'
+          }`}
+        >
           {/* 헤더 */}
           <div className="flex items-center gap-2 border-b border-border bg-surface-2/60 px-4 py-3">
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/15 text-brand">
