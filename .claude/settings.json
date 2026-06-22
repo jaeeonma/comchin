@@ -130,7 +130,9 @@
       "Bash(node _shot.mjs)",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const p=JSON.parse\\(d\\).parts[0];console.log\\('part id:',p.id\\)}\\)\")",
       "Bash(node _shot.mjs 320)",
-      "Bash(node _shot2.mjs 320)"
+      "Bash(node _shot2.mjs 320)",
+      "Bash(node -e \"try{require.resolve\\('puppeteer-core'\\);console.log\\('puppeteer OK'\\)}catch\\(e\\){console.log\\('reinstall needed'\\)}\")",
+      "Bash(node _shotf.mjs)"
     ]
   }
 }

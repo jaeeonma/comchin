@@ -3,6 +3,7 @@ import { useParams, Navigate } from 'react-router-dom'
 import { PC_CATEGORIES, getPCsByCategory } from '../data/prebuiltPCs'
 import PrebuiltCard from '../components/PrebuiltCard'
 import TipCard from '../components/TipCard'
+import FilterDrawer, { FilterButton } from '../components/FilterDrawer'
 import { CATEGORY_TIPS } from '../data/tips'
 
 // 가격대 필터 — 라벨 + 범위(min < price <= max)
@@ -52,6 +53,7 @@ export default function CategoryPage() {
   const [priceSel, setPriceSel] = useState([]) // 선택된 가격대 라벨
   const [cpuSel, setCpuSel] = useState([])
   const [gpuSel, setGpuSel] = useState([])
+  const [filterOpen, setFilterOpen] = useState(false) // 모바일 필터 드로어
 
   // 잘못된 카테고리는 홈으로
   if (!meta) return <Navigate to="/" replace />
@@ -79,6 +81,16 @@ export default function CategoryPage() {
     setGpuSel([])
   }
 
+  // 데스크톱 사이드바와 모바일 드로어가 공유하는 필터 본문
+  const activeFilterCount = priceSel.length + cpuSel.length + gpuSel.length
+  const filterBody = (
+    <>
+      <FilterGroup title="가격대" items={PRICE_RANGES.map((r) => r.label)} selected={priceSel} onToggle={(v) => setPriceSel((s) => toggle(s, v))} />
+      <FilterGroup title="CPU" items={CPU_FILTERS} selected={cpuSel} onToggle={(v) => setCpuSel((s) => toggle(s, v))} />
+      <FilterGroup title="그래픽카드" items={GPU_FILTERS} selected={gpuSel} onToggle={(v) => setGpuSel((s) => toggle(s, v))} />
+    </>
+  )
+
   return (
     <div>
       <header className="mb-6">
@@ -104,34 +116,20 @@ export default function CategoryPage() {
               </button>
             )}
           </div>
-          <FilterGroup
-            title="가격대"
-            items={PRICE_RANGES.map((r) => r.label)}
-            selected={priceSel}
-            onToggle={(v) => setPriceSel((s) => toggle(s, v))}
-          />
-          <FilterGroup
-            title="CPU"
-            items={CPU_FILTERS}
-            selected={cpuSel}
-            onToggle={(v) => setCpuSel((s) => toggle(s, v))}
-          />
-          <FilterGroup
-            title="그래픽카드"
-            items={GPU_FILTERS}
-            selected={gpuSel}
-            onToggle={(v) => setGpuSel((s) => toggle(s, v))}
-          />
+          {filterBody}
         </aside>
 
         {/* 목록 */}
         <div>
           {/* 정렬 바 — 스크롤해도 상단(접힌 헤더 아래)에 고정 */}
-          <div className="sticky top-11 z-10 mb-4 flex items-center justify-between border-b border-border bg-bg pb-3 pt-2">
-            <p className="text-sm text-muted">
-              총 <span className="font-semibold text-text">{visible.length}</span>개의 상품
-            </p>
-            <select className="rounded-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-brand">
+          <div className="sticky top-11 z-10 mb-4 flex items-center justify-between gap-2 border-b border-border bg-bg pb-3 pt-2">
+            <div className="flex items-center gap-2">
+              <FilterButton onClick={() => setFilterOpen(true)} activeCount={activeFilterCount} />
+              <p className="text-sm text-muted">
+                총 <span className="font-semibold text-text">{visible.length}</span>개의 상품
+              </p>
+            </div>
+            <select className="shrink-0 rounded-md border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-brand">
               {SORTS.map((s) => (
                 <option key={s}>{s}</option>
               ))}
@@ -161,6 +159,17 @@ export default function CategoryPage() {
           )}
         </div>
       </div>
+
+      {/* 모바일 필터 드로어 */}
+      <FilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={resetFilters}
+        activeCount={activeFilterCount}
+        resultLabel={`결과 ${visible.length}개 보기`}
+      >
+        {filterBody}
+      </FilterDrawer>
     </div>
   )
 }

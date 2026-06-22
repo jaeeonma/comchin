@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchAllParts } from '../api/parts'
 import { formatPrice, partSummary } from '../lib/partFormat'
+import FilterDrawer, { FilterButton } from '../components/FilterDrawer'
 
 // 부품 종류(이름) 필터 — key / 라벨 / 백엔드 enum
 const PART_TYPES = [
@@ -112,6 +113,7 @@ export default function PartsPage() {
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('인기순')
   const [visible, setVisible] = useState(PAGE)
+  const [filterOpen, setFilterOpen] = useState(false) // 모바일 필터 드로어
 
   const [partsByCat, setPartsByCat] = useState({}) // { cpu: [...] } 캐시
   const [status, setStatus] = useState('idle') // idle | loading | error
@@ -217,6 +219,20 @@ export default function PartsPage() {
     return () => io.disconnect()
   }, [visible, filtered.length, loadMore])
 
+  // 데스크톱 사이드바와 모바일 드로어가 공유하는 필터 본문
+  const activeFilterCount = typeSel.length + priceSel.length
+  const filterBody = (
+    <>
+      <FilterGroup
+        title="부품 종류"
+        items={PART_TYPES.map((t) => t.label)}
+        selected={typeSel.map((k) => PART_TYPES.find((t) => t.key === k).label)}
+        onToggle={(label) => toggleType(PART_TYPES.find((t) => t.label === label).key)}
+      />
+      <FilterGroup title="가격대" items={PRICE_RANGES.map((r) => r.label)} selected={priceSel} onToggle={togglePrice} />
+    </>
+  )
+
   return (
     <div>
       <header className="mb-6">
@@ -225,7 +241,7 @@ export default function PartsPage() {
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
-        {/* 사이드바 필터 — 스크롤해도 같이 따라오며 고정 */}
+        {/* 사이드바 필터(데스크톱) — filterBody 는 모바일 드로어와 공유 */}
         <aside className="hidden self-start lg:sticky lg:top-11 lg:block lg:max-h-[calc(100vh-4rem)] lg:overflow-y-auto">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="font-bold">필터</h2>
@@ -239,30 +255,20 @@ export default function PartsPage() {
               </button>
             )}
           </div>
-          <FilterGroup
-            title="부품 종류"
-            items={PART_TYPES.map((t) => t.label)}
-            selected={typeSel.map((k) => PART_TYPES.find((t) => t.key === k).label)}
-            onToggle={(label) => toggleType(PART_TYPES.find((t) => t.label === label).key)}
-          />
-          <FilterGroup
-            title="가격대"
-            items={PRICE_RANGES.map((r) => r.label)}
-            selected={priceSel}
-            onToggle={togglePrice}
-          />
+          {filterBody}
         </aside>
 
         {/* 목록 */}
         <div>
           {/* 검색 + 정렬 바 — 스크롤해도 상단(접힌 헤더 아래)에 고정 */}
-          <div className="sticky top-11 z-10 mb-3 flex items-center gap-3 border-b border-border bg-bg pb-3 pt-2">
+          <div className="sticky top-11 z-10 mb-3 flex items-center gap-2 border-b border-border bg-bg pb-3 pt-2 sm:gap-3">
+            <FilterButton onClick={() => setFilterOpen(true)} activeCount={activeFilterCount} />
             <input
               type="search"
               value={query}
               onChange={(e) => onSearch(e.target.value)}
-              placeholder="부품 이름을 검색해보세요"
-              className="flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
+              placeholder="부품 검색"
+              className="min-w-0 flex-1 rounded-md border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
             />
             <select
               value={sort}
@@ -309,6 +315,17 @@ export default function PartsPage() {
           )}
         </div>
       </div>
+
+      {/* 모바일 필터 드로어 */}
+      <FilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onReset={resetFilters}
+        activeCount={activeFilterCount}
+        resultLabel={`결과 ${filtered.length.toLocaleString('ko-KR')}개 보기`}
+      >
+        {filterBody}
+      </FilterDrawer>
     </div>
   )
 }
