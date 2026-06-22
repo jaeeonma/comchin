@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useAiStore } from '../store/useAiStore'
 import HeroBanner from '../components/HeroBanner'
 import CategoryStrip from '../components/CategoryStrip'
 import BuildCard from '../components/BuildCard'
@@ -24,6 +25,7 @@ function SectionHeader({ title, desc, to }) {
 
 export default function HomePage() {
   const gamingBuilds = recommendedBuilds.filter((b) => b.tag === '게이밍')
+  const openChat = useAiStore((s) => s.openChat)
 
   return (
     <div className="flex flex-col gap-12">
@@ -53,12 +55,13 @@ export default function HomePage() {
             </p>
           </div>
         </div>
-        <Link
-          to="/builder"
+        <button
+          type="button"
+          onClick={openChat}
           className="whitespace-nowrap rounded-md bg-brand px-5 py-2.5 font-semibold text-white hover:bg-brand-hover"
         >
           AI 견적 시작하기
-        </Link>
+        </button>
       </section>
 
       {/* 컴친 추천 견적 */}

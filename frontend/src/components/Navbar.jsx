@@ -6,6 +6,7 @@ import SearchBox from './SearchBox'
 import { useAuthStore } from '../store/useAuthStore'
 import { useCartStore } from '../store/useCartStore'
 import { useFavoriteStore } from '../store/useFavoriteStore'
+import { useAiStore } from '../store/useAiStore'
 
 const categoryMenu = [
   { to: '/category/gaming', label: '게이밍 PC' },
@@ -32,6 +33,7 @@ export default function Navbar() {
   const logout = useAuthStore((s) => s.logout)
   const cartCount = useCartStore((s) => s.items.reduce((sum, it) => sum + it.qty, 0))
   const favCount = useFavoriteStore((s) => s.items.length)
+  const openChat = useAiStore((s) => s.openChat)
 
   // 스크롤을 내리면 헤더 상단(로고·검색)을 접어 카테고리 메뉴만 슬림하게 고정.
   // 접기/펼치기 임계점을 다르게(히스테리시스) 줘서 경계에서 떨리는(통통 튀는) 현상을 막는다.
@@ -74,6 +76,24 @@ export default function Navbar() {
               <Link to="/">
                 <Logo className="h-9" />
               </Link>
+
+          {/* AI 비서 배너 — 클릭 시 우하단 AI 창 열기 (오른쪽은 계정 아이콘이라 왼쪽 빈칸에 배치) */}
+          <button
+            type="button"
+            onClick={openChat}
+            className="absolute left-0 hidden items-center gap-2 rounded-full border border-brand/40 bg-brand/10 px-3.5 py-1.5 text-sm font-semibold text-brand transition-colors hover:bg-brand/15 md:flex"
+            aria-label="컴친 AI 비서 열기"
+          >
+            <img
+              src="/images/logos/Gemini_logo.png"
+              alt=""
+              className="gemini-logo h-4 w-auto shrink-0 object-contain"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+            AI 견적 분석
+          </button>
 
           <div className="absolute right-0 flex items-center gap-3 text-base">
             {/* 계좌·카드 조회 */}

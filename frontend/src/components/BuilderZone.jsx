@@ -253,24 +253,6 @@ export default function BuilderZone({ enableSave = false, platform }) {
           <p className="mt-1 text-3xl font-bold">{formatPrice(price)}</p>
           <p className="mt-2 text-xs text-white/80">VAT 포함 · 입력 시점 기준 가격</p>
         </div>
-
-        <button
-          type="button"
-          className="flex items-center gap-3 rounded-2xl border border-brand/40 bg-brand/10 px-5 py-4 text-left transition-colors hover:bg-brand/15"
-        >
-          <img
-            src="/images/logos/Gemini_logo.png"
-            alt="Gemini"
-            className="gemini-logo h-7 w-auto shrink-0 object-contain"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-            }}
-          />
-          <span>
-            <span className="block font-semibold">AI에게 견적 분석 요청</span>
-            <span className="block text-sm text-muted">부품 호환성·병목·주의할 점을 알려드려요</span>
-          </span>
-        </button>
       </aside>
 
         {/* 호버 시 사진 팝업 (떠 있는 카드) */}

@@ -118,7 +118,11 @@
       "Bash(curl -s \"https://comchin.onrender.com/api/parts?category=CPU\" --max-time 70)",
       "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d\\);const p=j.parts[0];console.log\\('count\\(CPU\\)=',j.count\\);console.log\\('필드:',Object.keys\\(p\\).join\\(','\\)\\);console.log\\(\\('createdAt' in p\\)?'→ 아직 옛 배포 \\(createdAt 있음\\)':'→ 새 배포 반영됨! \\(createdAt 없음\\)'\\)}catch\\(e\\){console.log\\('파싱실패/응답:',d.slice\\(0,100\\)\\)}}\\)\")",
       "Bash(cd /c/Users/User/Desktop/comchin/frontend *)",
-      "Read(//c/Users/User/Desktop/backend/src/routes/**)"
+      "Read(//c/Users/User/Desktop/backend/src/routes/**)",
+      "Bash(curl -s -X POST \"https://comchin.onrender.com/api/ai/chat\" -H \"Content-Type: application/json; charset=utf-8\" --data-binary @_pq.json --max-time 70 -o /tmp/pai.json -w \"status=%{http_code} time=%{time_total}s\\\\n\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d\\);console.log\\('reply:',\\(j.reply||j.message||''\\).slice\\(0,120\\)\\)}catch\\(e\\){console.log\\('raw:',d.slice\\(0,120\\)\\)}}\\)\")",
+      "Bash(curl -s -X POST \"https://comchin.onrender.com/api/ai/chat\" -H \"Content-Type: application/json; charset=utf-8\" --data-binary @_pq.json --max-time 70)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d\\);console.log\\('AI 응답:',\\(j.reply||JSON.stringify\\(j\\)\\).slice\\(0,160\\)\\)}catch\\(e\\){console.log\\('raw:',d.slice\\(0,160\\)\\)}}\\)\")"
     ]
   }
 }
