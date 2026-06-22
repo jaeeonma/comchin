@@ -112,7 +112,13 @@
       "Bash(curl -s \"https://comchin.onrender.com/api/parts\" -o /tmp/parts.json -w \"status=%{http_code} time=%{time_total}s size=%{size_download}\\\\n\")",
       "Bash(node -e \"try{const d=require\\('/tmp/parts.json'\\);console.log\\('count=',d.count,'parts.length=',d.parts?.length\\)}catch\\(e\\){console.log\\('JSON 파싱 실패:',e.message\\)}\")",
       "Bash(curl -s \"http://localhost:4000/api/parts\")",
-      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('count=',j.count\\);const p=j.parts[0];console.log\\('필드:',Object.keys\\(p\\).join\\(','\\)\\);console.log\\('specs 포함:', 'specs' in p, '| createdAt 제외:', !\\('createdAt' in p\\)\\)}\\)\")"
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('count=',j.count\\);const p=j.parts[0];console.log\\('필드:',Object.keys\\(p\\).join\\(','\\)\\);console.log\\('specs 포함:', 'specs' in p, '| createdAt 제외:', !\\('createdAt' in p\\)\\)}\\)\")",
+      "Bash(curl -s -o /dev/null \"https://comchin.onrender.com/api/health\" -w \"health: status=%{http_code} time=%{time_total}s\\\\n\" --max-time 70)",
+      "Bash(curl -s \"https://comchin.onrender.com/\" -o /tmp/h.html -w \"메인: status=%{http_code} time=%{time_total}s\\\\n\" --max-time 70)",
+      "Bash(curl -s \"https://comchin.onrender.com/api/parts?category=CPU\" --max-time 70)",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{try{const j=JSON.parse\\(d\\);const p=j.parts[0];console.log\\('count\\(CPU\\)=',j.count\\);console.log\\('필드:',Object.keys\\(p\\).join\\(','\\)\\);console.log\\(\\('createdAt' in p\\)?'→ 아직 옛 배포 \\(createdAt 있음\\)':'→ 새 배포 반영됨! \\(createdAt 없음\\)'\\)}catch\\(e\\){console.log\\('파싱실패/응답:',d.slice\\(0,100\\)\\)}}\\)\")",
+      "Bash(cd /c/Users/User/Desktop/comchin/frontend *)",
+      "Read(//c/Users/User/Desktop/backend/src/routes/**)"
     ]
   }
 }
