@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchParts } from '../api/parts'
+import { fetchAllParts } from '../api/parts'
 import { formatPrice, partSummary } from '../lib/partFormat'
 
 // 부품 종류(이름) 필터 — key / 라벨 / 백엔드 enum
@@ -15,7 +15,7 @@ const PART_TYPES = [
   { key: 'cpuCooler', label: 'CPU 쿨러', enum: 'CPU_COOLER' },
   { key: 'hdd', label: 'HDD', enum: 'HDD' },
 ]
-const ENUM_OF = Object.fromEntries(PART_TYPES.map((t) => [t.key, t.enum]))
+const KEY_OF_ENUM = Object.fromEntries(PART_TYPES.map((t) => [t.enum, t.key]))
 const ALL_KEYS = PART_TYPES.map((t) => t.key)
 
 // id + seed 기반 의사난수. seed 가 바뀌면(=새로 방문) 순서가 달라지고,
@@ -121,25 +121,29 @@ export default function PartsPage() {
   // 선택 종류가 없으면 전체(ALL_KEYS)를 대상으로
   const effective = typeSel.length > 0 ? typeSel : ALL_KEYS
 
-  // 대상 종류 중 캐시에 없는 것만 조회
+  // 캐시에 없는 종류가 있으면, 전체를 "한 번"에 받아 카테고리별로 나눠 캐시.
+  // (카테고리별 9개 병렬 요청은 무료 인스턴스/Neon 깨우기에 과부하라 1회 요청으로 통합)
   useEffect(() => {
     const missing = effective.filter((k) => !partsByCat[k])
     if (missing.length === 0) return
     let alive = true
-    setStatus('loading')
-    Promise.all(missing.map((k) => fetchParts(ENUM_OF[k]).then((parts) => [k, parts])))
-      .then((results) => {
+    const load = async () => {
+      setStatus('loading')
+      try {
+        const all = await fetchAllParts()
         if (!alive) return
-        setPartsByCat((prev) => {
-          const next = { ...prev }
-          for (const [k, parts] of results) next[k] = parts
-          return next
-        })
+        const grouped = Object.fromEntries(ALL_KEYS.map((k) => [k, []]))
+        for (const p of all) {
+          const key = KEY_OF_ENUM[p.category]
+          if (grouped[key]) grouped[key].push(p)
+        }
+        setPartsByCat(grouped) // 모든 종류를 한 번에 채워 재요청 방지
         setStatus('idle')
-      })
-      .catch(() => {
+      } catch {
         if (alive) setStatus('error')
-      })
+      }
+    }
+    load()
     return () => {
       alive = false
     }

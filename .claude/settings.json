@@ -95,7 +95,24 @@
       "Bash(node -e \"const l=require\\('./package-lock.json'\\); const r=l.packages['']; console.log\\('deps에 prisma:', !!\\(r.dependencies&&r.dependencies.prisma\\), '| devDeps에 prisma:', !!\\(r.devDependencies&&r.devDependencies.prisma\\)\\)\")",
       "Bash(curl -s http://localhost:4000/)",
       "Bash(curl -s -o /dev/null -w \"GET /parts → %{http_code}\\\\n\" http://localhost:4000/parts)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:4000/api/parts?category=CPU\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:4000/api/parts?category=CPU\")",
+      "Bash(export DATABASE_URL=\"postgresql://neondb_owner:npg_uD1k8ltaAzEb@ep-delicate-tree-adyyrw2v.c-2.us-east-1.aws.neon.tech/neondb?sslmode=require\")",
+      "Bash(node prisma/import-parts.js)",
+      "Bash(curl -s https://comchin.onrender.com/ -w \"\\\\n[HTTP %{http_code}]\\\\n\")",
+      "Bash(curl -s -o /dev/null -w \"/favicon.svg → %{http_code}\\\\n\" https://comchin.onrender.com/favicon.svg)",
+      "Bash(curl -s -o /dev/null -w \"/api/health → %{http_code}\\\\n\" https://comchin.onrender.com/api/health)",
+      "Bash(export MSYS_NO_PATHCONV=1)",
+      "Bash(curl -s -o /dev/null -w \"  status=%{http_code} type=%{content_type}\\\\n\" \"https://comchin.onrender.com/favicon.svg\")",
+      "Bash(curl -s -o /dev/null -w \"  status=%{http_code} type=%{content_type}\\\\n\" \"https://comchin.onrender.com/api/health\")",
+      "Bash(curl -s -o /dev/null -w \"  status=%{http_code} type=%{content_type}\\\\n\" \"https://comchin.onrender.com/\")",
+      "Bash(curl -s -o /dev/null -w \"  status=%{http_code}\\\\n\" \"https://comchin.onrender.com/api/parts?category=CPU\")",
+      "Bash(curl -s \"https://comchin.onrender.com/\")",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}  size=%{size_download} bytes  time=%{time_total}s\\\\n\" \"https://comchin.onrender.com/api/parts\")",
+      "Bash(curl -s -o /dev/null -w \"status=%{http_code}  size=%{size_download}  time=%{time_total}s\\\\n\" \"https://comchin.onrender.com/api/parts?category=CPU\")",
+      "Bash(curl -s \"https://comchin.onrender.com/api/parts\" -o /tmp/parts.json -w \"status=%{http_code} time=%{time_total}s size=%{size_download}\\\\n\")",
+      "Bash(node -e \"try{const d=require\\('/tmp/parts.json'\\);console.log\\('count=',d.count,'parts.length=',d.parts?.length\\)}catch\\(e\\){console.log\\('JSON 파싱 실패:',e.message\\)}\")",
+      "Bash(curl -s \"http://localhost:4000/api/parts\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\).on\\('end',\\(\\)=>{const j=JSON.parse\\(d\\);console.log\\('count=',j.count\\);const p=j.parts[0];console.log\\('필드:',Object.keys\\(p\\).join\\(','\\)\\);console.log\\('specs 포함:', 'specs' in p, '| createdAt 제외:', !\\('createdAt' in p\\)\\)}\\)\")"
     ]
   }
 }
