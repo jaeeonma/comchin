@@ -155,7 +155,7 @@ export default function PurchaseBar({ basePrice = 0, includeBuild = true, playfu
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface/95 backdrop-blur">
       {/* 담김 안내 토스트 */}
       {added && (
-        <div className="mx-auto max-w-7xl px-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mt-2 flex items-center justify-between rounded-lg border border-brand bg-brand/10 px-4 py-2 text-sm">
             <span className="text-text">장바구니에 담았습니다.</span>
             <Link to="/cart" className="font-semibold text-brand hover:underline">
@@ -167,7 +167,7 @@ export default function PurchaseBar({ basePrice = 0, includeBuild = true, playfu
 
       {/* 즐겨찾기 안내 토스트 */}
       {favMsg && (
-        <div className="mx-auto max-w-7xl px-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mt-2 flex items-center justify-between rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-2 text-sm">
             <span className="text-text">{favMsg}</span>
             <Link to="/favorites" className="font-semibold text-rose-500 hover:underline">
@@ -179,14 +179,14 @@ export default function PurchaseBar({ basePrice = 0, includeBuild = true, playfu
 
       {/* 비로그인 안내 토스트 */}
       {needLogin && (
-        <div className="mx-auto max-w-7xl px-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="mt-2 rounded-lg border border-rose-500/50 bg-rose-500/10 px-4 py-2 text-sm text-text">
             로그인이 필요합니다. 로그인 페이지로 이동합니다…
           </div>
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl px-6 py-3">
+      <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
         {/* 총액 */}
         <p className="mb-2 text-right text-sm text-muted">
           {includeBuild ? '선택 총액' : '상품 금액'}{' '}
