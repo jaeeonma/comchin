@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { prisma } from '../lib/prisma.js'
 import { getUserIdFromReq } from '../lib/auth.js'
+import { validateHolderName, validatePhone, validateNumber } from '../lib/validators.js'
 
 const router = Router()
 
@@ -56,15 +57,16 @@ router.post('/', async (req, res, next) => {
     const bank = String(req.body?.bank ?? '').trim()
     const number = String(req.body?.number ?? '').replace(/\D/g, '')
     const holderName = String(req.body?.holderName ?? '').trim()
-    const phone = String(req.body?.phone ?? '').trim() || null
+    const phone = String(req.body?.phone ?? '').trim()
 
     if (type !== 'account' && type !== 'card') {
       return res.status(400).json({ message: '계좌 또는 카드를 선택하세요.' })
     }
     if (!bank) return res.status(400).json({ message: '은행사/카드사를 선택하세요.' })
-    if (!holderName) return res.status(400).json({ message: '이름을 입력하세요.' })
-    if (number.length < 8) {
-      return res.status(400).json({ message: '번호를 올바르게 입력하세요.' })
+    // 정규식 검증 (프론트와 동일 규칙으로 서버에서 재확인)
+    const formError = validateHolderName(holderName) || validatePhone(phone) || validateNumber(type, number)
+    if (formError) {
+      return res.status(400).json({ message: formError })
     }
 
     const created = await prisma.paymentMethod.create({

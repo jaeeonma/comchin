@@ -209,12 +209,27 @@ router.post('/chat', async (req, res, next) => {
     if (err?.message === 'GEMINI_NOT_CONFIGURED') {
       return res.status(503).json({ message: 'AI 비서가 아직 준비 중이에요.', notConfigured: true })
     }
+    // 전역 대기열이 가득 참(동시 사용자 폭주) → 잠시 후 안내
+    if (err?.code === 'LIMITER_BUSY') {
+      return res.status(429).json({
+        message: '지금 AI를 이용하는 분이 많아요. 잠깐 뒤에 다시 시도해 주세요. 🙏',
+        rateLimited: true,
+      })
+    }
     // Gemini 무료 한도 초과(429/RESOURCE_EXHAUSTED) → 친절 안내
     const status = err?.status ?? err?.response?.status
-    if (status === 429 || /RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(String(err?.message ?? ''))) {
+    const msg = String(err?.message ?? '')
+    if (status === 429 || /RESOURCE_EXHAUSTED|quota|rate.?limit/i.test(msg)) {
       return res.status(429).json({
         message: '지금 AI 이용량이 많아요. 잠시 후(약 1분 뒤) 다시 시도해 주세요. 🙏',
         rateLimited: true,
+      })
+    }
+    // Gemini 모델 일시 과부하(503 UNAVAILABLE) → raw 에러 노출 대신 친절 안내
+    if (status === 503 || /UNAVAILABLE|overloaded|high demand/i.test(msg)) {
+      return res.status(503).json({
+        message: 'AI가 지금 잠시 붐비고 있어요. 몇 초 뒤 다시 시도해 주세요. 🙏',
+        retryable: true,
       })
     }
     next(err)

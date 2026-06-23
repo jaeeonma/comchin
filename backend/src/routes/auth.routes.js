@@ -9,23 +9,22 @@ import {
   getUserIdFromReq,
   publicUser,
 } from '../lib/auth.js'
+import { validateEmail, validateNickname, validatePassword } from '../lib/validators.js'
 
 const router = Router()
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // 회원가입: 이메일 중복 확인 → bcrypt 해싱 → 생성 → JWT 쿠키 발급
 router.post('/register', async (req, res, next) => {
   try {
     const email = String(req.body?.email ?? '').trim().toLowerCase()
     const password = String(req.body?.password ?? '')
-    const nickname = String(req.body?.nickname ?? '').trim() || email.split('@')[0]
+    const rawNickname = String(req.body?.nickname ?? '').trim()
+    const nickname = rawNickname || email.split('@')[0]
 
-    if (!EMAIL_RE.test(email)) {
-      return res.status(400).json({ message: '올바른 이메일 형식이 아닙니다.' })
-    }
-    if (password.length < 4) {
-      return res.status(400).json({ message: '비밀번호는 4자 이상이어야 합니다.' })
+    // 정규식 검증 (프론트와 동일 규칙으로 서버에서 재확인)
+    const formError = validateEmail(email) || validateNickname(rawNickname) || validatePassword(password)
+    if (formError) {
+      return res.status(400).json({ message: formError })
     }
 
     const hash = await bcrypt.hash(password, 10)
@@ -122,8 +121,9 @@ router.post('/google', async (req, res, next) => {
     if (!password) {
       return res.json({ needPassword: true, email, nickname })
     }
-    if (String(password).length < 4) {
-      return res.status(400).json({ message: '비밀번호는 4자 이상이어야 합니다.' })
+    const pwError = validatePassword(password)
+    if (pwError) {
+      return res.status(400).json({ message: pwError })
     }
 
     // 비밀번호 받음 → 구글 이메일 + 입력한 비밀번호로 회원 저장(또는 연결)

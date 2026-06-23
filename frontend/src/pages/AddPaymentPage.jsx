@@ -5,6 +5,15 @@ import { useAuthStore } from '../store/useAuthStore'
 import Captcha from '../components/Captcha'
 import BankLogo from '../components/BankLogo'
 import { BANKS } from '../lib/banks'
+import {
+  validateHolderName,
+  validatePhone,
+  validateSsnFront,
+  validateNumber,
+  formatPhone,
+  formatCard,
+  onlyDigits,
+} from '../lib/validators'
 
 export default function AddPaymentPage() {
   const navigate = useNavigate()
@@ -31,17 +40,18 @@ export default function AddPaymentPage() {
     e.preventDefault()
     setError(null)
     if (!bank) return setError(`${type === 'card' ? '카드사' : '은행'}를 선택하세요.`)
-    if (!holderName.trim()) return setError('이름을 입력하세요.')
-    if (phone.replace(/\D/g, '').length < 9) return setError('전화번호를 올바르게 입력하세요.')
-    if (ssnFront.replace(/\D/g, '').length !== 6) return setError('주민등록번호 앞 6자리를 입력하세요.')
+    // 정규식 검증 — 이름/전화번호/주민번호 앞자리/번호 형식 (서버에서도 동일하게 재검증)
+    const formError =
+      validateHolderName(holderName) ||
+      validatePhone(phone) ||
+      validateSsnFront(ssnFront) ||
+      validateNumber(type, number)
+    if (formError) return setError(formError)
     if (!captchaOk) return setError('보안문자를 정확히 입력하세요.')
-    const digits = number.replace(/\D/g, '')
-    if (type === 'card' && digits.length < 15) return setError('카드번호 16자리를 입력하세요.')
-    if (type === 'account' && digits.length < 8) return setError('계좌번호를 올바르게 입력하세요.')
 
     setBusy(true)
     try {
-      await add({ type, bank, holderName: holderName.trim(), phone: phone.trim(), number: digits })
+      await add({ type, bank, holderName: holderName.trim(), phone: phone.trim(), number: onlyDigits(number) })
       navigate('/wallet') // 등록 완료 → 조회 페이지에서 보여줌
     } catch (err) {
       setError(err?.response?.data?.message ?? '등록에 실패했어요. 다시 시도해주세요.')
@@ -77,6 +87,7 @@ export default function AddPaymentPage() {
                 onClick={() => {
                   setType(v)
                   setBank('')
+                  setNumber('')
                 }}
                 className={`rounded-lg border py-2.5 text-sm font-semibold transition-colors ${
                   type === v ? 'border-brand bg-brand/10 text-brand' : 'border-border text-text hover:border-brand/50'
@@ -118,7 +129,14 @@ export default function AddPaymentPage() {
         {/* 전화번호 */}
         <div>
           <label className="mb-1 block text-sm text-muted">전화번호</label>
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" className={field} />
+          <input
+            type="tel"
+            inputMode="numeric"
+            value={phone}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            placeholder="010-1234-5678"
+            className={field}
+          />
         </div>
 
         {/* 주민번호 앞자리 */}
@@ -142,10 +160,15 @@ export default function AddPaymentPage() {
             type="text"
             inputMode="numeric"
             value={number}
-            onChange={(e) => setNumber(e.target.value.replace(/[^\d-]/g, ''))}
-            placeholder={type === 'card' ? '0000-0000-0000-0000' : '예: 110-123-456789'}
+            onChange={(e) =>
+              setNumber(type === 'card' ? formatCard(e.target.value) : e.target.value.replace(/[^\d-]/g, ''))
+            }
+            placeholder={type === 'card' ? '4242-4242-4242-4242' : '예: 110-123-456789'}
             className={field}
           />
+          {type === 'card' && (
+            <p className="mt-1 text-xs text-muted">테스트 번호: 4242-4242-4242-4242</p>
+          )}
         </div>
 
         {/* 보안 인증 */}

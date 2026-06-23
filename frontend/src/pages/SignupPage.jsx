@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
 import GoogleLoginButton from '../components/GoogleLoginButton'
+import { validateEmail, validateNickname, validatePassword } from '../lib/validators'
 
 export default function SignupPage() {
   const navigate = useNavigate()
@@ -17,8 +18,11 @@ export default function SignupPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (password.length < 4) {
-      setError('비밀번호는 4자 이상이어야 합니다.')
+    // 정규식 검증 — 이메일/닉네임/비밀번호 형식 (서버에서도 동일하게 재검증)
+    const formError =
+      validateEmail(email) || validateNickname(nickname) || validatePassword(password)
+    if (formError) {
+      setError(formError)
       return
     }
     if (password !== confirm) {
@@ -71,7 +75,7 @@ export default function SignupPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="rounded-md border border-border bg-surface px-3 py-2 outline-none focus:border-brand"
-            placeholder="4자 이상"
+            placeholder="영문+숫자 포함 8자 이상"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm">

@@ -55,9 +55,10 @@ export default function AiAssistant() {
         setMessages((m) => [...m, { role: 'assistant', content: data.reply }])
       }
     } catch (e) {
-      // 429: 속도 제한(연타) 또는 Gemini 무료 한도 초과 → 서버가 준 안내 그대로
+      // 429(속도제한/한도)·503(모델 과부하) → 서버가 준 친절 안내를 그대로 보여준다
+      const status = e?.response?.status
       const content =
-        e?.response?.status === 429
+        status === 429 || status === 503
           ? e.response.data?.message ?? '지금 이용량이 많아요. 잠시 후 다시 시도해 주세요. 🙏'
           : '응답을 가져오지 못했어요. 잠시 후 다시 시도해 주세요. 🙏'
       setMessages((m) => [...m, { role: 'assistant', content }])

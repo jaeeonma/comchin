@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { GoogleLogin } from '@react-oauth/google'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
+import { validatePassword } from '../lib/validators'
 
 // 구글 로그인 버튼.
 // - 이미 비밀번호까지 있는 계정 → 바로 로그인.
@@ -38,8 +39,9 @@ export default function GoogleLoginButton({ onError }) {
   const submitPassword = async (e) => {
     e.preventDefault()
     setPwError('')
-    if (pw.length < 4) {
-      setPwError('비밀번호는 4자 이상이어야 합니다.')
+    const pwError = validatePassword(pw)
+    if (pwError) {
+      setPwError(pwError)
       return
     }
     setSubmitting(true)
@@ -96,7 +98,7 @@ export default function GoogleLoginButton({ onError }) {
                   autoFocus
                   value={pw}
                   onChange={(e) => setPw(e.target.value)}
-                  placeholder="비밀번호 (4자 이상)"
+                  placeholder="비밀번호 (영문+숫자 8자 이상)"
                   className="rounded-md border border-border bg-surface-2 px-3 py-2.5 text-sm outline-none focus:border-brand"
                 />
                 {pwError && <p className="text-sm text-rose-500">{pwError}</p>}
