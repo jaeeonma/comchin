@@ -35,10 +35,16 @@ const ENUM_LABEL = {
 const PRICE_RANGES = [
   { label: '5만원 이하', min: 0, max: 50000 },
   { label: '5~10만원', min: 50000, max: 100000 },
-  { label: '10~30만원', min: 100000, max: 300000 },
-  { label: '30~50만원', min: 300000, max: 500000 },
-  { label: '50만원 이상', min: 500000, max: Infinity },
+  { label: '10~20만원', min: 100000, max: 200000 },
+  { label: '20~40만원', min: 200000, max: 400000 },
+  { label: '40~70만원', min: 400000, max: 700000 },
+  { label: '70~100만원', min: 700000, max: 1000000 },
+  { label: '100~200만원', min: 1000000, max: 2000000 },
+  { label: '200만원 이상', min: 2000000, max: Infinity },
 ]
+// 소켓·메모리 규격 필터 (CPU·메인보드·메모리에 적용)
+const SOCKET_FILTERS = ['AM5', 'AM4', 'LGA1851', 'LGA1700']
+const MEMTYPE_FILTERS = ['DDR5', 'DDR4']
 
 const SORTS = ['인기순', '낮은 가격순', '높은 가격순', '이름순']
 const PAGE = 24
@@ -110,6 +116,9 @@ export default function PartsPage() {
   // 기본은 아무 종류도 선택 안 함 → 모든 종류를 랜덤으로 섞어 보여줌
   const [typeSel, setTypeSel] = useState([])
   const [priceSel, setPriceSel] = useState([])
+  const [brandSel, setBrandSel] = useState([])
+  const [socketSel, setSocketSel] = useState([])
+  const [memSel, setMemSel] = useState([])
   const [query, setQuery] = useState('')
   const [sort, setSort] = useState('인기순')
   const [visible, setVisible] = useState(PAGE)
@@ -160,6 +169,18 @@ export default function PartsPage() {
     setPriceSel((s) => toggle(s, label))
     setVisible(PAGE)
   }
+  const toggleBrand = (v) => {
+    setBrandSel((s) => toggle(s, v))
+    setVisible(PAGE)
+  }
+  const toggleSocket = (v) => {
+    setSocketSel((s) => toggle(s, v))
+    setVisible(PAGE)
+  }
+  const toggleMem = (v) => {
+    setMemSel((s) => toggle(s, v))
+    setVisible(PAGE)
+  }
   const onSearch = (v) => {
     setQuery(v)
     setVisible(PAGE)
@@ -171,9 +192,24 @@ export default function PartsPage() {
   const resetFilters = () => {
     setTypeSel([])
     setPriceSel([])
+    setBrandSel([])
+    setSocketSel([])
+    setMemSel([])
     setQuery('')
     setVisible(PAGE)
   }
+
+  // 데이터에 실제로 있는 상위 제조사(브랜드) — 필터 옵션으로 노출
+  const brandOptions = useMemo(() => {
+    const counts = {}
+    for (const k of ALL_KEYS) for (const p of partsByCat[k] || []) {
+      if (p.brand) counts[p.brand] = (counts[p.brand] || 0) + 1
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 14)
+      .map(([b]) => b)
+  }, [partsByCat])
 
   // 대상 종류의 부품들을 합치고 → 가격/검색 필터 → 정렬(인기순=랜덤 배치)
   const filtered = useMemo(() => {
@@ -187,6 +223,9 @@ export default function PartsPage() {
         }),
       )
     }
+    if (brandSel.length > 0) list = list.filter((p) => brandSel.includes(p.brand))
+    if (socketSel.length > 0) list = list.filter((p) => p.socket && socketSel.includes(p.socket))
+    if (memSel.length > 0) list = list.filter((p) => p.memoryType && memSel.includes(p.memoryType))
 
     const q = query.trim().toLowerCase()
     if (q) list = list.filter((p) => p.name.toLowerCase().includes(q))
@@ -197,10 +236,11 @@ export default function PartsPage() {
     else if (sort === '이름순') sorted.sort((a, b) => a.name.localeCompare(b.name, 'ko'))
     else sorted.sort((a, b) => seededRank(a.id, seed) - seededRank(b.id, seed)) // 인기순 → 랜덤 배치
     return sorted
-  }, [effective, partsByCat, priceSel, query, sort, seed])
+  }, [effective, partsByCat, priceSel, brandSel, socketSel, memSel, query, sort, seed])
 
   const visibleParts = filtered.slice(0, visible)
-  const hasFilter = priceSel.length > 0 || query.trim() !== ''
+  const hasFilter =
+    priceSel.length > 0 || brandSel.length > 0 || socketSel.length > 0 || memSel.length > 0 || query.trim() !== ''
 
   // 무한 스크롤 — 하단 센티넬이 보이면 자동으로 다음 페이지(PAGE개)를 더 보여준다.
   const sentinelRef = useRef(null)
@@ -220,7 +260,7 @@ export default function PartsPage() {
   }, [visible, filtered.length, loadMore])
 
   // 데스크톱 사이드바와 모바일 드로어가 공유하는 필터 본문
-  const activeFilterCount = typeSel.length + priceSel.length
+  const activeFilterCount = typeSel.length + priceSel.length + brandSel.length + socketSel.length + memSel.length
   const filterBody = (
     <>
       <FilterGroup
@@ -230,6 +270,11 @@ export default function PartsPage() {
         onToggle={(label) => toggleType(PART_TYPES.find((t) => t.label === label).key)}
       />
       <FilterGroup title="가격대" items={PRICE_RANGES.map((r) => r.label)} selected={priceSel} onToggle={togglePrice} />
+      {brandOptions.length > 0 && (
+        <FilterGroup title="제조사" items={brandOptions} selected={brandSel} onToggle={toggleBrand} />
+      )}
+      <FilterGroup title="소켓 (CPU·메인보드)" items={SOCKET_FILTERS} selected={socketSel} onToggle={toggleSocket} />
+      <FilterGroup title="메모리 규격" items={MEMTYPE_FILTERS} selected={memSel} onToggle={toggleMem} />
     </>
   )
 
