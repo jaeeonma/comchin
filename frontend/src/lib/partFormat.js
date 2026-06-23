@@ -2,6 +2,14 @@
 
 export const formatPrice = (won) => `${won.toLocaleString('ko-KR')}원`
 
+// 네이버 쇼핑 CDN(pstatic) 이미지는 ?type=f{size} 로 리사이즈된 작은 버전을 받을 수 있다.
+// 작은 표시 크기의 썸네일에 쓰면 용량이 ~10배 줄어 로딩이 훨씬 빨라진다.
+// (큰 사진은 원본을 쓰고, 로컬/기타 URL·이미 쿼리가 붙은 URL은 그대로 둔다.)
+export function thumbUrl(url, size = 140) {
+  if (!url || url.includes('?')) return url
+  return /(^|\.)pstatic\.net\//.test(url) ? `${url}?type=f${size}` : url
+}
+
 // 카테고리별로 의미 있는 스펙만 골라 한 줄 요약
 export function partSummary(part) {
   const s = part.specs ?? {}

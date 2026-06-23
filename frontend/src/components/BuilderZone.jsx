@@ -5,7 +5,7 @@ import { useSavedBuildStore } from '../store/useSavedBuildStore'
 import PartList from './PartList'
 import TipCard from './TipCard'
 import { builderTips } from '../lib/tipEngine'
-import { formatPrice, partSummary } from '../lib/partFormat'
+import { formatPrice, partSummary, thumbUrl } from '../lib/partFormat'
 import { isPartCompatible, PLATFORM_LABEL } from '../lib/platform'
 
 const CATEGORY_LABELS = {
@@ -353,7 +353,7 @@ function HoverPopup({ part, rect }) {
     >
       <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-white">
         {part.imageUrl ? (
-          <img src={part.imageUrl} alt={part.name} className="h-full w-full object-contain p-2" />
+          <img src={thumbUrl(part.imageUrl, 500)} alt={part.name} decoding="async" className="h-full w-full object-contain p-2" />
         ) : (
           <span className="text-sm text-gray-400">이미지 없음</span>
         )}
@@ -409,8 +409,11 @@ function PartRow({ category, part, active, optional, onPick, onRemove }) {
       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-2">
         {part?.imageUrl ? (
           <img
-            src={part.imageUrl}
+            src={thumbUrl(part.imageUrl, 140)}
             alt={part.name}
+            width="56"
+            height="56"
+            decoding="async"
             className="h-full w-full bg-white object-contain"
             onError={(e) => {
               e.currentTarget.replaceWith(

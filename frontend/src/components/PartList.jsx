@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchParts } from '../api/parts'
-import { formatPrice, partSummary } from '../lib/partFormat'
+import { formatPrice, partSummary, thumbUrl } from '../lib/partFormat'
 import { isPartCompatible } from '../lib/platform'
 import { OS_PARTS } from '../data/osParts'
 
@@ -133,34 +133,37 @@ export default function PartList({ categoryEnum, selectedId, onHover, onSelect, 
   const [status, setStatus] = useState('loading') // loading | success | error
   const [retryKey, setRetryKey] = useState(0)
 
+  // 운영체제(OS)는 백엔드 부품이 아니라 정적 데이터 → API 호출/상태 갱신 없이 바로 사용
+  const isOS = categoryEnum === 'OS'
+
   useEffect(() => {
-    // 운영체제(OS)는 백엔드 부품이 아니라 정적 데이터 사용 (API 호출 없음)
-    if (categoryEnum === 'OS') {
-      setParts(OS_PARTS)
-      setStatus('success')
-      return
-    }
+    if (isOS) return
     let alive = true
-    setStatus('loading')
-    fetchParts(categoryEnum)
-      .then((data) => {
+    const load = async () => {
+      setStatus('loading')
+      try {
+        const data = await fetchParts(categoryEnum)
         if (!alive) return
         setParts(data)
         setStatus('success')
-      })
-      .catch(() => {
+      } catch {
         if (alive) setStatus('error')
-      })
+      }
+    }
+    load()
     return () => {
       alive = false
     }
-  }, [categoryEnum, retryKey])
+  }, [categoryEnum, retryKey, isOS])
+
+  const sourceParts = isOS ? OS_PARTS : parts
+  const effStatus = isOS ? 'success' : status
 
   // 플랫폼 필터 — CPU·메인보드만 호환 소켓으로 거른다(나머지는 공용)
   const viewParts = useMemo(() => {
-    if (!platform) return parts
-    return parts.filter((p) => isPartCompatible(p, platform))
-  }, [parts, platform])
+    if (!platform) return sourceParts
+    return sourceParts.filter((p) => isPartCompatible(p, platform))
+  }, [sourceParts, platform])
 
   const groups = useMemo(() => {
     const map = new Map()
@@ -178,7 +181,7 @@ export default function PartList({ categoryEnum, selectedId, onHover, onSelect, 
     return arr
   }, [viewParts, categoryEnum])
 
-  if (status === 'loading') {
+  if (effStatus === 'loading') {
     return (
       <div className="flex flex-col items-center gap-3 py-12 text-muted">
         <span className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-brand" />
@@ -187,7 +190,7 @@ export default function PartList({ categoryEnum, selectedId, onHover, onSelect, 
     )
   }
 
-  if (status === 'error') {
+  if (effStatus === 'error') {
     return (
       <div className="flex flex-col items-center gap-3 py-12">
         <p className="text-muted">부품을 불러오지 못했습니다. 백엔드 서버가 켜져 있는지 확인해주세요.</p>
@@ -239,8 +242,12 @@ export default function PartList({ categoryEnum, selectedId, onHover, onSelect, 
                     <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white">
                       {part.imageUrl ? (
                         <img
-                          src={part.imageUrl}
+                          src={thumbUrl(part.imageUrl, 140)}
                           alt={part.name}
+                          width="48"
+                          height="48"
+                          loading="lazy"
+                          decoding="async"
                           className="h-full w-full object-contain"
                           onError={(e) => {
                             e.currentTarget.replaceWith(
