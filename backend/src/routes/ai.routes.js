@@ -1,7 +1,17 @@
 import { Router } from 'express'
+import { readFileSync } from 'node:fs'
 import { prisma } from '../lib/prisma.js'
 import { generateChat, isGeminiConfigured } from '../lib/gemini.js'
 import { getUserIdFromReq } from '../lib/auth.js'
+
+// 완본체(조립 완료 PC) 요약 — scripts/export-prebuilts.js 로 생성. 추천 근거로 사용.
+const PREBUILTS = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL('../data/prebuilts.json', import.meta.url)))
+  } catch {
+    return []
+  }
+})()
 
 const router = Router()
 
@@ -141,10 +151,69 @@ function partLine(p) {
   return bits.filter(Boolean).join(' ')
 }
 
+// 완본체 카테고리 추정 (위에서부터 먼저 매칭)
+const PC_CAT_RULES = [
+  [/사무|문서|인강|오피스|학습|포스|키오스크/i, 'office'],
+  [/작업|편집|렌더|영상|3d|모델링|머신러닝|크리에이|딥러닝|\bai\b/i, 'workstation'],
+  [/하이엔드|끝판왕|플래그십|최고\s*사양|최상위/i, 'highend'],
+  [/게이밍|게임|발로|배그|롤|오버워치|배틀그라운드|고주사율/i, 'gaming'],
+]
+function detectPcCategory(text) {
+  for (const [re, c] of PC_CAT_RULES) if (re.test(text)) return c
+  return null
+}
+
+// 사용자 메시지에 맞는 완본체(완성형 PC)를 찾아 추천 근거로 제공.
+// 카테고리/예산/모델명 토큰으로 점수화해 상위 몇 개만 고른다.
+function findRelevantPrebuilts(text) {
+  if (!PREBUILTS.length) return []
+  const tokens = tokenize(text)
+  const cat = detectPcCategory(text)
+  const maxBudget = parseMaxBudget(text)
+  // 완본체 추천 의도 신호가 없으면 끼워넣지 않는다(부품 단독 질문 노이즈 방지)
+  const pcIntent = cat || /완본체|완성형|조립\s*pc|완제품|본체|추천|견적|맞춰|싸게|가성비|pc\b/i.test(text)
+  if (!pcIntent) return []
+
+  const scored = []
+  for (const pc of PREBUILTS) {
+    let score = 0
+    let relevant = false
+    if (cat && pc.category === cat) {
+      score += 3
+      relevant = true
+    }
+    const hay = `${pc.name} ${pc.cpu ?? ''} ${pc.gpu ?? ''} ${pc.ram ?? ''}`.toLowerCase()
+    for (const t of tokens) {
+      if (hay.includes(t.toLowerCase())) {
+        score += 2
+        relevant = true
+      }
+    }
+    if (maxBudget && pc.price && pc.price <= maxBudget) score += 1
+    if (relevant && score > 0) scored.push({ pc, score })
+  }
+  // 예산 있으면 그 안에서 비싼(좋은)순, 없으면 저렴한순
+  scored.sort((a, b) => b.score - a.score || (maxBudget ? b.pc.price - a.pc.price : a.pc.price - b.pc.price))
+  return scored.slice(0, 6).map((s) => s.pc)
+}
+
+// 완본체 한 줄 요약 (모델에 넣는 근거 텍스트)
+function pcLine(pc) {
+  return [
+    `[${pc.categoryLabel}]`, pc.name,
+    `· ${won(pc.price)}`,
+    pc.cpu ? `· CPU ${pc.cpu}` : '',
+    pc.gpu ? `· GPU ${pc.gpu}` : '',
+    pc.ram ? `· RAM ${pc.ram}` : '',
+    pc.ssd ? `· ${pc.ssd}` : '',
+  ].filter(Boolean).join(' ')
+}
+
 const SYSTEM = `너는 PC 쇼핑몰 "컴친(컴퓨터 친구)"의 AI 비서야. 말투는 친근한 한국어 존댓말. 오늘은 2026년이야.
 역할: (1) 견적 추천·상담 (2) 부품 호환성 진단 (3) 제품 검색/질의응답.
 규칙:
 - 아래 "컴친 DB 제품" 목록에 있는 제품은 지금 컴친에서 실제 판매 중인 최신 제품이야. 네 학습 데이터에 없거나 '미출시'로 알고 있어도, 목록의 정보(가격·소켓·메모리·전력)를 사실로 신뢰하고 그대로 사용해. 절대 "아직 출시되지 않았다/정보가 없다"고 말하지 마. (예: RTX 50 시리즈, 라이젠 9000 시리즈 등은 이미 출시된 제품임)
+- "컴친 완본체" 목록이 함께 주어지면, 그건 조립까지 끝나 바로 살 수 있는 완성형 PC야. 사용자가 완본체/완성형/추천 PC를 원하면, 부품을 일일이 고르는 대신 이 완본체를 이름·가격과 함께 1~3개 추천해도 좋아. 직접 견적(부품 조합)과 완본체 추천을 상황에 맞게 안내해.
 - 목록에 없는 제품만 일반 지식으로 보완하고, 이때는 "정확한 가격/재고는 사이트에서 확인" 정도로 안내해.
 - 호환성은 CPU·메인보드 소켓 일치, 메모리(DDR4/DDR5) 세대 일치, 파워 용량(부품 TDP 합 대비 여유)을 기준으로 설명해.
 - 가격은 원화(원)로. "N만원"은 N×10,000원이야 (예: 20만원=200,000원, 80만원=800,000원). 단위를 절대 헷갈리지 마.
@@ -177,13 +246,19 @@ router.post('/chat', async (req, res, next) => {
       return res.status(400).json({ message: '메시지를 입력해주세요.' })
     }
 
-    // 근거 데이터: 관련 부품 + (있으면) 사용자의 현재 견적
+    // 근거 데이터: 관련 부품 + 관련 완본체 + (있으면) 사용자의 현재 견적
     const parts = await findRelevantParts(lastUser)
+    const pcs = findRelevantPrebuilts(lastUser)
     const build = Array.isArray(req.body?.build) ? req.body.build.slice(0, 20) : []
 
     let grounding = ''
     if (parts.length) {
       grounding += `[컴친 DB 제품 — 지금 판매 중인 실제 제품, 이 정보를 근거로 답할 것]\n${parts.map(partLine).join('\n')}`
+    }
+    if (pcs.length) {
+      grounding +=
+        `${grounding ? '\n\n' : ''}[컴친 완본체 — 조립까지 끝나 바로 살 수 있는 완성형 PC]\n` +
+        pcs.map(pcLine).join('\n')
     }
     if (build.length) {
       grounding +=
