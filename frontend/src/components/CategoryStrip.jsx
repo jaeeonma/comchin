@@ -1,9 +1,14 @@
 import { Link } from 'react-router-dom'
 import { categories } from '../data/mockBuilds'
 
-// 완본체 카테고리는 목록 페이지로, 그 외(부품·직접견적)는 견적 페이지로
+// 완본체 카테고리 → 목록 페이지, 부품 카테고리 → 부품 페이지(해당 필터 적용), 그 외(직접견적) → 견적 페이지
 const PC_KEYS = ['gaming', 'workstation', 'highend', 'office']
-const linkFor = (key) => (PC_KEYS.includes(key) ? `/category/${key}` : '/builder')
+const PART_KEYS = ['cpu', 'gpu', 'memory', 'motherboard', 'ssd', 'psu', 'case', 'cpuCooler', 'hdd']
+const linkFor = (key) => {
+  if (PC_KEYS.includes(key)) return `/category/${key}`
+  if (PART_KEYS.includes(key)) return `/parts?type=${key}` // 부품 페이지에서 해당 종류 필터 자동 적용
+  return '/builder'
+}
 
 export default function CategoryStrip() {
   return (

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { fetchAllParts } from '../api/parts'
 import { formatPrice, partSummary } from '../lib/partFormat'
 import FilterDrawer, { FilterButton } from '../components/FilterDrawer'
@@ -113,8 +113,10 @@ function PartCard({ part }) {
 }
 
 export default function PartsPage() {
-  // 기본은 아무 종류도 선택 안 함 → 모든 종류를 랜덤으로 섞어 보여줌
-  const [typeSel, setTypeSel] = useState([])
+  // 메인 상단 스트립 등에서 /parts?type=cpu 로 들어오면 그 종류 필터를 미리 적용
+  const [searchParams] = useSearchParams()
+  const initialType = searchParams.get('type')
+  const [typeSel, setTypeSel] = useState(() => (ALL_KEYS.includes(initialType) ? [initialType] : []))
   const [priceSel, setPriceSel] = useState([])
   const [brandSel, setBrandSel] = useState([])
   const [socketSel, setSocketSel] = useState([])

@@ -1,11 +1,22 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { useAiStore } from '../store/useAiStore'
 import HeroBanner from '../components/HeroBanner'
 import CategoryStrip from '../components/CategoryStrip'
-import BuildCard from '../components/BuildCard'
+import PrebuiltCard from '../components/PrebuiltCard'
 import TipCard from '../components/TipCard'
-import { recommendedBuilds } from '../data/mockBuilds'
+import { prebuiltPCs, getPCsByCategory } from '../data/prebuiltPCs'
 import { GENERAL_TIPS } from '../data/tips'
+
+// 배열에서 n개 무작위 추출 (Fisher–Yates 셔플)
+function sample(arr, n) {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a.slice(0, n)
+}
 
 function SectionHeader({ title, desc, to }) {
   return (
@@ -24,8 +35,10 @@ function SectionHeader({ title, desc, to }) {
 }
 
 export default function HomePage() {
-  const gamingBuilds = recommendedBuilds.filter((b) => b.tag === '게이밍')
   const openChat = useAiStore((s) => s.openChat)
+  // 방문할 때마다 무작위: 추천 견적 8개(전체 160대 중) · 인기 게이밍 4개(게이밍 카테고리 중)
+  const recommended = useMemo(() => sample(prebuiltPCs, 8), [])
+  const gamingBuilds = useMemo(() => sample(getPCsByCategory('gaming'), 4), [])
 
   return (
     <div className="flex flex-col gap-12">
@@ -72,8 +85,8 @@ export default function HomePage() {
           to="/builder"
         />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {recommendedBuilds.map((build) => (
-            <BuildCard key={build.id} build={build} />
+          {recommended.map((pc) => (
+            <PrebuiltCard key={pc.id} pc={pc} />
           ))}
         </div>
       </section>
@@ -83,11 +96,11 @@ export default function HomePage() {
         <SectionHeader
           title="인기 게이밍 PC"
           desc="롤·배그·발로란트 부드럽게"
-          to="/builder"
+          to="/category/gaming"
         />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {gamingBuilds.map((build) => (
-            <BuildCard key={build.id} build={build} />
+          {gamingBuilds.map((pc) => (
+            <PrebuiltCard key={pc.id} pc={pc} />
           ))}
         </div>
       </section>
