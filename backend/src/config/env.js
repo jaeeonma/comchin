@@ -15,6 +15,8 @@ export const env = {
   geminiApiKey: process.env.GEMINI_API_KEY,
   naverClientId: process.env.NAVER_CLIENT_ID,
   naverClientSecret: process.env.NAVER_CLIENT_SECRET,
+  // 1:1 상담 답장 권한을 가진 운영자(관리자) 이메일
+  adminEmail: (process.env.ADMIN_EMAIL ?? 'jaeeonmaeng@gmail.com').toLowerCase(),
 }
 
 export const isProd = env.nodeEnv === 'production'

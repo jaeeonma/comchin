@@ -5,6 +5,7 @@ import partsRoutes from './parts.routes.js'
 import buildsRoutes from './builds.routes.js'
 import paymentRoutes from './payment.routes.js'
 import aiRoutes from './ai.routes.js'
+import supportRoutes from './support.routes.js'
 
 const router = Router()
 
@@ -14,5 +15,6 @@ router.use('/parts', partsRoutes)
 router.use('/builds', buildsRoutes)
 router.use('/payments', paymentRoutes)
 router.use('/ai', aiRoutes)
+router.use('/support', supportRoutes)
 
 export default router

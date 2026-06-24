@@ -5,6 +5,7 @@ import { categories } from '../data/mockBuilds'
 const PC_KEYS = ['gaming', 'workstation', 'highend', 'office']
 const PART_KEYS = ['cpu', 'gpu', 'memory', 'motherboard', 'ssd', 'psu', 'case', 'cpuCooler', 'hdd']
 const linkFor = (key) => {
+  if (key === 'support') return '/support' // 1:1 상담 페이지
   if (PC_KEYS.includes(key)) return `/category/${key}`
   if (PART_KEYS.includes(key)) return `/parts?type=${key}` // 부품 페이지에서 해당 종류 필터 자동 적용
   return '/builder'
@@ -13,7 +14,7 @@ const linkFor = (key) => {
 export default function CategoryStrip() {
   return (
     <section>
-      <ul className="grid grid-cols-4 gap-4 sm:grid-cols-8">
+      <ul className="grid grid-cols-[repeat(auto-fill,minmax(6.5rem,1fr))] gap-4">
         {categories.map((cat) => (
           <li key={cat.key}>
             <Link
@@ -29,14 +30,14 @@ export default function CategoryStrip() {
                   onError={(e) => {
                     e.currentTarget.replaceWith(
                       Object.assign(document.createElement('span'), {
-                        className: 'text-4xl',
+                        className: 'flex h-20 w-20 items-center justify-center text-5xl',
                         textContent: cat.icon,
                       }),
                     )
                   }}
                 />
               ) : (
-                <span className="text-4xl">{cat.icon}</span>
+                <span className="flex h-20 w-20 items-center justify-center text-5xl">{cat.icon}</span>
               )}
               <span className="text-sm text-muted">{cat.label}</span>
             </Link>

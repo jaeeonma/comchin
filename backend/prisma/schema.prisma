@@ -33,10 +33,26 @@ model User {
   builds    Build[]
   payments  PaymentMethod[]
   orders    Payment[]
+  supportMessages SupportMessage[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("users")
+}
+
+// 1:1 상담 — 고객(각 사용자)과 운영자(관리자) 사이의 메시지.
+// userId가 곧 대화 스레드(고객) 식별자이며, 관리자 답장도 해당 고객 스레드에 기록한다.
+// (AI를 쓰지 않는 사용자를 위한 사람이 직접 답하는 상담 창구)
+model SupportMessage {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String // 스레드 주인(고객)
+  fromAdmin Boolean  @default(false) // true=운영자 답장, false=고객 메시지
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("support_messages")
 }
 
 // 결제수단(계좌/카드) — 포트폴리오용. 번호는 조회 시 절반을 * 로 가려서 내려준다.

@@ -13,6 +13,7 @@ import WalletPage from './pages/WalletPage'
 import AddPaymentPage from './pages/AddPaymentPage'
 import TipsPage from './pages/TipsPage'
 import PartsGuidePage from './pages/PartsGuidePage'
+import SupportPage from './pages/SupportPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="pc/:id" element={<PrebuiltDetailPage />} />
         <Route path="guide/tips" element={<TipsPage />} />
         <Route path="guide/parts" element={<PartsGuidePage />} />
+        <Route path="support" element={<SupportPage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="signup" element={<SignupPage />} />
         <Route path="*" element={<NotFoundPage />} />
