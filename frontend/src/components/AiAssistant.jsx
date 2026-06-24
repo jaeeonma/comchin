@@ -18,6 +18,12 @@ const GREETING = {
 
 const SUGGESTIONS = ['80만원대 게이밍 PC 추천해줘', '사무용 견적 짜줘', '지금 담은 견적 호환돼?']
 
+// 창 크기 한계(px)
+const DEFAULT_W = 352
+const DEFAULT_H = 512
+const MIN_W = 300
+const MIN_H = 360
+
 export default function AiAssistant() {
   const open = useAiStore((s) => s.open)
   const toggle = useAiStore((s) => s.toggle)
@@ -30,10 +36,88 @@ export default function AiAssistant() {
   const user = useAuthStore((s) => s.user)
   const addBuild = useSavedBuildStore((s) => s.addBuild)
 
+  // 창 크기/위치 — pos가 null이면 기본 위치(우하단 도킹), 값이 있으면 자유 위치(left/top px)
+  const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H })
+  const [pos, setPos] = useState(null)
+  const [moved, setMoved] = useState(false) // 한 번이라도 옮겼는지 → 닫기 X 노출
+  const panelRef = useRef(null)
+  const dragRef = useRef(null) // 진행 중인 드래그/리사이즈 정보
+
   // 메시지 추가 시 맨 아래로 스크롤
   useEffect(() => {
     if (open && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
   }, [messages, loading, open])
+
+  // 브라우저 창이 작아지면 패널이 화면 밖으로 나가지 않게 위치를 보정
+  useEffect(() => {
+    if (!pos) return
+    const onResize = () => {
+      setPos((p) => {
+        if (!p) return p
+        const maxLeft = window.innerWidth - 80
+        const maxTop = window.innerHeight - 60
+        return {
+          left: Math.min(Math.max(p.left, 8 - size.w + 80), maxLeft),
+          top: Math.min(Math.max(p.top, 8), maxTop),
+        }
+      })
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [pos, size.w])
+
+  // 드래그(이동)/리사이즈 공통 시작 — 진행 중에만 전역 리스너를 붙였다 뗀다.
+  const beginInteraction = (e, kind, dir) => {
+    e.preventDefault()
+    const r = panelRef.current.getBoundingClientRect()
+    dragRef.current = {
+      kind, dir,
+      startX: e.clientX, startY: e.clientY,
+      left: r.left, top: r.top, w: r.width, h: r.height,
+    }
+    // 어떤 조작이든 자유 위치로 전환(도킹 해제). 단, 닫기 X는 "이동"했을 때만 띄운다.
+    setPos({ left: r.left, top: r.top })
+    setSize({ w: r.width, h: r.height })
+    if (kind === 'move') setMoved(true)
+
+    const onMove = (ev) => {
+      const s = dragRef.current
+      if (!s) return
+      const dx = ev.clientX - s.startX
+      const dy = ev.clientY - s.startY
+      if (s.kind === 'move') {
+        const maxLeft = window.innerWidth - 80
+        const maxTop = window.innerHeight - 60
+        setPos({
+          left: Math.min(Math.max(s.left + dx, 8 - s.w + 80), maxLeft),
+          top: Math.min(Math.max(s.top + dy, 8), maxTop),
+        })
+      } else {
+        let { left, top, w, h } = s
+        if (s.dir.includes('e')) w = s.w + dx
+        if (s.dir.includes('s')) h = s.h + dy
+        if (s.dir.includes('w')) { w = s.w - dx; left = s.left + dx }
+        if (s.dir.includes('n')) { h = s.h - dy; top = s.top + dy }
+        // 최소 크기 보정 (좌/상단 핸들이면 위치도 같이 보정)
+        if (w < MIN_W) { if (s.dir.includes('w')) left = s.left + (s.w - MIN_W); w = MIN_W }
+        if (h < MIN_H) { if (s.dir.includes('n')) top = s.top + (s.h - MIN_H); h = MIN_H }
+        // 화면 안으로 제한
+        w = Math.min(w, window.innerWidth - 16)
+        h = Math.min(h, window.innerHeight - 16)
+        setSize({ w, h })
+        setPos({ left, top })
+      }
+    }
+    const onUp = () => {
+      dragRef.current = null
+      document.body.style.userSelect = ''
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    document.body.style.userSelect = 'none'
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }
 
   const send = async (text) => {
     const content = (text ?? input).trim()
@@ -81,6 +165,23 @@ export default function AiAssistant() {
     }
   }
 
+  // 패널 위치/크기 스타일 — 도킹(pos null) vs 자유 위치
+  const panelStyle = pos
+    ? { left: pos.left, top: pos.top, width: size.w, height: size.h }
+    : { right: 24, bottom: bottomBar ? 192 : 96, width: size.w, height: size.h }
+
+  // 리사이즈 핸들 (가장자리 4 + 모서리 4)
+  const HANDLES = [
+    { dir: 'n', cls: 'left-2 right-2 top-0 h-1.5 cursor-ns-resize' },
+    { dir: 's', cls: 'left-2 right-2 bottom-0 h-1.5 cursor-ns-resize' },
+    { dir: 'w', cls: 'top-2 bottom-2 left-0 w-1.5 cursor-ew-resize' },
+    { dir: 'e', cls: 'top-2 bottom-2 right-0 w-1.5 cursor-ew-resize' },
+    { dir: 'nw', cls: 'left-0 top-0 h-3 w-3 cursor-nwse-resize' },
+    { dir: 'ne', cls: 'right-0 top-0 h-3 w-3 cursor-nesw-resize' },
+    { dir: 'sw', cls: 'left-0 bottom-0 h-3 w-3 cursor-nesw-resize' },
+    { dir: 'se', cls: 'right-0 bottom-0 h-3 w-3 cursor-nwse-resize' },
+  ]
+
   return (
     <>
       {/* 플로팅 런처 버튼 */}
@@ -107,24 +208,45 @@ export default function AiAssistant() {
         )}
       </button>
 
-      {/* 채팅 패널 */}
+      {/* 채팅 패널 — 헤더를 잡고 이동, 가장자리를 잡고 크기 조절 */}
       {open && (
         <div
-          className={`fixed right-6 z-40 flex h-128 max-h-[calc(100vh-8rem)] w-88 max-w-[calc(100vw-3rem)] flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl ${
-            bottomBar ? 'bottom-48' : 'bottom-24'
-          }`}
+          ref={panelRef}
+          style={{ ...panelStyle, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100vh - 16px)' }}
+          className="fixed z-40 flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
         >
-          {/* 헤더 */}
-          <div className="flex items-center gap-2 border-b border-border bg-surface-2/60 px-4 py-3">
+          {/* 헤더 (드래그 핸들) */}
+          <div
+            onMouseDown={(e) => {
+              // 버튼(닫기 X) 위에서 시작한 건 드래그로 보지 않는다
+              if (e.target.closest('[data-no-drag]')) return
+              beginInteraction(e, 'move')
+            }}
+            className="flex shrink-0 cursor-move select-none items-center gap-2 border-b border-border bg-surface-2/60 px-4 py-3"
+          >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/15 text-brand">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l2 4 4 .5-3 3 .8 4.5L12 17l-3.8 2 .8-4.5-3-3 4-.5z" />
               </svg>
             </span>
-            <div className="leading-tight">
-              <p className="text-sm font-bold text-text">컴친 AI 비서</p>
-              <p className="text-xs text-muted">견적·호환성·제품 상담</p>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-sm font-bold text-text">컴친 AI 비서</p>
+              <p className="truncate text-xs text-muted">견적·호환성·제품 상담</p>
             </div>
+            {/* 닫기 X — 창을 옮긴 뒤부터 노출(런처 버튼이 멀어지므로) */}
+            {moved && (
+              <button
+                type="button"
+                data-no-drag
+                onClick={toggle}
+                aria-label="AI 비서 닫기"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-text"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" className="h-4 w-4">
+                  <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* 메시지 목록 */}
@@ -176,7 +298,7 @@ export default function AiAssistant() {
               e.preventDefault()
               send()
             }}
-            className="flex items-center gap-2 border-t border-border p-3"
+            className="flex shrink-0 items-center gap-2 border-t border-border p-3"
           >
             <input
               type="text"
@@ -196,6 +318,15 @@ export default function AiAssistant() {
               </svg>
             </button>
           </form>
+
+          {/* 리사이즈 핸들 (가장자리·모서리) */}
+          {HANDLES.map((h) => (
+            <div
+              key={h.dir}
+              onMouseDown={(e) => beginInteraction(e, 'resize', h.dir)}
+              className={`absolute z-10 ${h.cls}`}
+            />
+          ))}
         </div>
       )}
     </>
