@@ -56,8 +56,8 @@ function tokenize(text) {
 const isStrong = (t) => /\d/.test(t) || /^[A-Za-z]{4,}$/.test(t)
 
 const PART_SELECT = {
-  category: true, name: true, brand: true, price: true,
-  tdp: true, socket: true, memoryType: true,
+  id: true, category: true, name: true, brand: true, price: true,
+  tdp: true, imageUrl: true, socket: true, memoryType: true,
 }
 
 // 메시지에서 카테고리 추정 (위에서부터 먼저 매칭)
@@ -209,6 +209,126 @@ function pcLine(pc) {
   ].filter(Boolean).join(' ')
 }
 
+// ── AI가 확정한 직접 견적을 실제 DB 부품으로 해석해 "저장 가능한 견적"으로 만들기 ──
+// 백엔드 PartCategory enum → 프론트 견적 카테고리 키
+const ENUM_TO_KEY = {
+  CPU: 'cpu', CPU_COOLER: 'cpuCooler', MEMORY: 'memory', MOTHERBOARD: 'motherboard',
+  GPU: 'gpu', SSD: 'ssd', HDD: 'hdd', PSU: 'psu', CASE: 'case', OS: 'os',
+}
+// AI가 다른 표기를 써도 받아주는 별칭(공백 제거·소문자 정규화 후 매칭)
+const CAT_ALIAS = {
+  cpu: 'CPU', 프로세서: 'CPU', 씨피유: 'CPU',
+  cpu쿨러: 'CPU_COOLER', cpucooler: 'CPU_COOLER', 쿨러: 'CPU_COOLER', cooler: 'CPU_COOLER',
+  memory: 'MEMORY', 메모리: 'MEMORY', 램: 'MEMORY', ram: 'MEMORY',
+  motherboard: 'MOTHERBOARD', mainboard: 'MOTHERBOARD', 메인보드: 'MOTHERBOARD', 마더보드: 'MOTHERBOARD',
+  gpu: 'GPU', vga: 'GPU', 그래픽카드: 'GPU', 그래픽: 'GPU', 지포스: 'GPU',
+  ssd: 'SSD', hdd: 'HDD', 하드: 'HDD', 하드디스크: 'HDD',
+  psu: 'PSU', 파워: 'PSU', 전원: 'PSU', 전원공급: 'PSU',
+  case: 'CASE', 케이스: 'CASE', 본체: 'CASE',
+}
+function toEnum(cat) {
+  const raw = String(cat ?? '').trim()
+  if (ENUM_TO_KEY[raw]) return raw // 이미 enum
+  const norm = raw.replace(/[\s_]/g, '').toLowerCase()
+  return CAT_ALIAS[norm] ?? null
+}
+
+// 견적 블록: 사람이 읽는 설명 뒤에 붙는 기계용 JSON (화면에는 표시하지 않음)
+const BUILD_RE = /===\s*BUILD\s*===\s*([\s\S]*?)\s*===\s*END\s*===/i
+// 저장 견적에 들어갈 부품 객체 필드(프론트 직접견적이 쓰는 모양과 동일)
+const BUILD_PART_SELECT = {
+  id: true, category: true, name: true, brand: true, price: true,
+  tdp: true, imageUrl: true, socket: true, memoryType: true,
+}
+
+// 제품명으로 실제 DB 부품 1개 찾기: 정확 일치 → 부분 포함 → 강한 토큰 AND 순으로 시도
+async function findPartByName(category, name) {
+  let p = await prisma.part.findFirst({ where: { category, name }, select: BUILD_PART_SELECT })
+  if (p) return p
+  p = await prisma.part.findFirst({
+    where: { category, name: { contains: name, mode: 'insensitive' } },
+    select: BUILD_PART_SELECT,
+  })
+  if (p) return p
+  const toks = tokenize(name).filter(isStrong).slice(0, 4)
+  if (toks.length) {
+    p = await prisma.part.findFirst({
+      where: { category, AND: toks.map((t) => ({ name: { contains: t, mode: 'insensitive' } })) },
+      orderBy: { price: 'asc' },
+      select: BUILD_PART_SELECT,
+    })
+    if (p) return p
+  }
+  return null
+}
+
+// 견적 블록(JSON 문자열) → 저장 가능한 견적 { name, parts, price, caseImage } 또는 null
+async function resolveBuild(block) {
+  let data
+  try {
+    data = JSON.parse(block)
+  } catch {
+    return null
+  }
+  const items = Array.isArray(data?.items) ? data.items : []
+  if (!items.length) return null
+  const parts = {}
+  for (const it of items.slice(0, 12)) {
+    const enumCat = toEnum(it?.category)
+    const name = String(it?.name ?? '').trim()
+    if (!enumCat || enumCat === 'OS' || !name) continue
+    const key = ENUM_TO_KEY[enumCat]
+    if (!key || parts[key]) continue
+    const found = await findPartByName(enumCat, name)
+    if (found) parts[key] = found
+  }
+  // 신뢰 기준: CPU 포함 + 3개 이상 실제 부품으로 해석됐을 때만 저장 견적으로 인정
+  if (!parts.cpu || Object.keys(parts).length < 3) return null
+  const price = Object.values(parts).reduce((s, p) => s + (p.price ?? 0), 0)
+  const name = (String(data?.name ?? '').trim().slice(0, 40)) || 'PC'
+  return { name, parts, price, caseImage: parts.case?.imageUrl ?? null }
+}
+
+// 폴백: AI가 견적 블록을 안 넣었어도, 답변 본문에 "그대로 인용된" 컴친 DB 제품명을
+// 찾아 견적을 구성한다. 근거로 넘긴 실제 부품만 대조하므로 허위 제품이 끼지 않는다.
+const normName = (s) => String(s).toLowerCase().replace(/[\s[\]()·,_-]/g, '')
+function buildFromReply(reply, groundingParts) {
+  const replyN = normName(reply)
+  const parts = {}
+  for (const p of groundingParts) {
+    const key = ENUM_TO_KEY[p.category]
+    if (!key || key === 'os' || parts[key]) continue
+    const n = normName(p.name)
+    if (n.length >= 6 && replyN.includes(n)) parts[key] = p // 본문이 이 제품을 그대로 인용
+  }
+  if (!parts.cpu || Object.keys(parts).length < 3) return null
+  const price = Object.values(parts).reduce((s, p) => s + (p.price ?? 0), 0)
+  return { name: 'PC', parts, price, caseImage: parts.case?.imageUrl ?? null }
+}
+
+// 예산형 견적 요청("80만원대 게이밍 PC")일 때, AI가 실제 DB 제품명으로 견적을 짤 수
+// 있도록 카테고리별 후보 부품(팔레트)을 근거로 제공한다. 예산을 카테고리별 상한으로 배분.
+const PALETTE_CATS = ['CPU', 'MOTHERBOARD', 'MEMORY', 'GPU', 'SSD', 'PSU', 'CASE', 'CPU_COOLER']
+const CAT_BUDGET_SHARE = {
+  CPU: 0.28, MOTHERBOARD: 0.16, MEMORY: 0.12, GPU: 0.5,
+  SSD: 0.14, PSU: 0.14, CASE: 0.12, CPU_COOLER: 0.1,
+}
+async function findBuildPalette(text) {
+  const budget = parseMaxBudget(text)
+  const rows = await Promise.all(
+    PALETTE_CATS.map((cat) => {
+      const cap = budget ? Math.max(20000, Math.round(budget * (CAT_BUDGET_SHARE[cat] ?? 0.2))) : null
+      return prisma.part.findMany({
+        where: cap ? { category: cat, price: { lte: cap } } : { category: cat },
+        orderBy: cap ? { price: 'desc' } : { price: 'asc' }, // 예산 있으면 그 안에서 좋은(비싼)순
+        take: 3,
+        select: PART_SELECT,
+      })
+    }),
+  )
+  return rows.flat()
+}
+
 const SYSTEM = `너는 PC 쇼핑몰 "컴친(컴퓨터 친구)"의 AI 비서야. 말투는 친근한 한국어 존댓말. 오늘은 2026년이야.
 역할: (1) 견적 추천·상담 (2) 부품 호환성 진단 (3) 제품 검색/질의응답.
 규칙:
@@ -220,6 +340,11 @@ const SYSTEM = `너는 PC 쇼핑몰 "컴친(컴퓨터 친구)"의 AI 비서야. 
 - [되묻기] 견적/PC 추천 요청인데 판단에 필요한 핵심 정보(예산, 주 용도)가 빠져 있으면, 바로 추천하지 말고 먼저 1~3개의 짧은 질문으로 되물어봐. (예: "예산은 어느 정도로 생각하세요?", "주로 어떤 게임/작업에 쓰실 건가요?", "선호하는 브랜드·크기·디자인이 있나요?") 한 번에 너무 많이 묻지 말고 핵심부터.
 - 단, 사용자가 이미 예산·용도를 말했거나 "아무거나/알아서/빨리" 같은 신호를 주면 더 묻지 말고, 합리적인 가정을 한 줄로 밝힌 뒤 바로 추천해. 되묻기는 보통 1회면 충분하고, 답을 받으면 그 정보로 추천을 완성해.
 - 추천 시 카테고리별로 한 개씩 묶어서 제안하고, 왜 그 조합인지 한두 줄로 이유를 붙여.
+- [견적 저장 블록] 사용자에게 '직접 견적(부품 조합)'으로 완성된 PC를 확정 추천할 때는, 사람이 읽는 설명을 모두 적은 뒤 맨 끝에 아래 형식의 블록을 딱 한 번만 덧붙여. 이 블록은 화면에 보이지 않고, 추천한 견적을 사용자의 '직접 견적'에 자동 저장하는 용도로만 쓰여.
+  ===BUILD===
+  {"name":"게이밍 PC","items":[{"category":"CPU","name":"<컴친 DB 제품명 그대로>"},{"category":"MOTHERBOARD","name":"..."},{"category":"MEMORY","name":"..."},{"category":"GPU","name":"..."},{"category":"SSD","name":"..."},{"category":"PSU","name":"..."},{"category":"CASE","name":"..."}]}
+  ===END===
+  블록 규칙: (a) category는 CPU, CPU_COOLER, MEMORY, MOTHERBOARD, GPU, SSD, HDD, PSU, CASE 중에서만 쓴다. (b) name은 위 "컴친 DB 제품" 목록에 있는 제품명을 토씨 하나 안 틀리게 그대로 복사한다(임의로 지어내거나 변형 금지). 목록에 없는 제품은 블록에 넣지 마. (c) 사용자에게 되묻는 중이거나, 완본체만 추천하거나, 단일 부품 질문에 답할 때는 이 블록을 절대 넣지 마. (d) name 칸을 채울 실제 DB 제품이 없으면 블록 자체를 생략해.
 - 모르는 건 솔직히 말하되, 위 DB 제품을 모른다고 하지는 마. 과장·허위 정보 금지.
 - 답변은 너무 길지 않게, 필요하면 짧은 목록/단계로.`
 
@@ -250,12 +375,23 @@ router.post('/chat', async (req, res, next) => {
 
     // 근거 데이터: 관련 부품 + 관련 완본체 + (있으면) 사용자의 현재 견적
     const parts = await findRelevantParts(lastUser)
+    // 견적/추천 의도인데 카테고리가 부족하면, 견적을 짤 수 있도록 카테고리별 후보를 채운다
+    const buildIntent = !!detectPcCategory(lastUser) || /견적|추천|맞춰|조립|컴퓨터|풀세트|세트/.test(lastUser)
+    if (buildIntent && new Set(parts.map((p) => p.category)).size < 4) {
+      const seen = new Set(parts.map((p) => p.name))
+      for (const p of await findBuildPalette(lastUser)) {
+        if (!seen.has(p.name)) {
+          parts.push(p)
+          seen.add(p.name)
+        }
+      }
+    }
     const pcs = findRelevantPrebuilts(lastUser)
     const build = Array.isArray(req.body?.build) ? req.body.build.slice(0, 20) : []
 
     let grounding = ''
     if (parts.length) {
-      grounding += `[컴친 DB 제품 — 지금 판매 중인 실제 제품, 이 정보를 근거로 답할 것]\n${parts.map(partLine).join('\n')}`
+      grounding += `[컴친 DB 제품 — 지금 판매 중인 실제 제품, 이 정보를 근거로 답할 것]\n${parts.slice(0, 32).map(partLine).join('\n')}`
     }
     if (pcs.length) {
       grounding +=
@@ -281,7 +417,32 @@ router.post('/chat', async (req, res, next) => {
 
     const reply = await generateChat({ system: SYSTEM, messages: augmented })
 
-    res.json({ reply: reply || '죄송해요, 답변을 만들지 못했어요. 다시 한 번 물어봐 주세요.' })
+    // 견적 저장 블록이 있으면 본문에서 떼어내고(화면 비표시), 실제 DB 부품으로 해석해
+    // 저장 가능한 견적으로 변환한다. 해석 실패 시 savedBuild는 null(일반 답변만).
+    let text = reply || ''
+    let savedBuild = null
+    const m = text.match(BUILD_RE)
+    if (m) {
+      text = text.replace(BUILD_RE, '').trim()
+      try {
+        savedBuild = await resolveBuild(m[1])
+      } catch {
+        savedBuild = null
+      }
+    }
+    // 블록이 없거나 해석 실패해도, 본문에 인용된 DB 제품으로 견적을 구성(폴백)
+    if (!savedBuild) {
+      try {
+        savedBuild = buildFromReply(text, parts)
+      } catch {
+        savedBuild = null
+      }
+    }
+
+    res.json({
+      reply: text || '죄송해요, 답변을 만들지 못했어요. 다시 한 번 물어봐 주세요.',
+      savedBuild,
+    })
   } catch (err) {
     if (err?.message === 'GEMINI_NOT_CONFIGURED') {
       return res.status(503).json({ message: 'AI 비서가 아직 준비 중이에요.', notConfigured: true })

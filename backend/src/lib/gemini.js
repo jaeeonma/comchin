@@ -59,7 +59,7 @@ export async function generateChat({ system, messages }) {
   const config = {
     systemInstruction: system,
     temperature: 0.6,
-    maxOutputTokens: 2048,
+    maxOutputTokens: 3072,
     // 2.5-flash는 답변 전 "thinking"에 출력 토큰을 소비해 답이 잘릴 수 있다.
     // 상담 챗봇엔 확장 추론이 불필요하므로 끄고(0) 전체 토큰을 답변에 쓴다.
     thinkingConfig: { thinkingBudget: 0 },

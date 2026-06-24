@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useBuildStore, CATEGORIES } from '../store/useBuildStore'
 import { useAiStore } from '../store/useAiStore'
+import { useAuthStore } from '../store/useAuthStore'
+import { useSavedBuildStore } from '../store/useSavedBuildStore'
 import { apiAiChat } from '../api/ai'
 
 const CAT_LABEL = {
@@ -25,6 +27,8 @@ export default function AiAssistant() {
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef(null)
   const selectedParts = useBuildStore((s) => s.selectedParts)
+  const user = useAuthStore((s) => s.user)
+  const addBuild = useSavedBuildStore((s) => s.addBuild)
 
   // 메시지 추가 시 맨 아래로 스크롤
   useEffect(() => {
@@ -53,6 +57,16 @@ export default function AiAssistant() {
         ])
       } else {
         setMessages((m) => [...m, { role: 'assistant', content: data.reply }])
+        // AI가 직접 견적을 확정했으면 자동 저장 — 로그인 사용자는 계정에, 게스트는 안내와 함께
+        if (data?.savedBuild?.parts && Object.keys(data.savedBuild.parts).length) {
+          const sb = data.savedBuild
+          const name = `제미나이 추천 ${sb.name || 'PC'}`.slice(0, 40)
+          addBuild({ name, caseImage: sb.caseImage ?? null, price: sb.price ?? 0, parts: sb.parts })
+          const note = user
+            ? `✅ 이 견적을 '${name}'(으)로 직접 견적에 저장해뒀어요.\n'직접 견적 → 저장한 견적'에서 언제든 불러와 담을 수 있어요. 🛠️`
+            : `📌 이 견적을 '${name}'(으)로 담아뒀어요.\n⚠️ 다만 로그인을 안 하셔서, 새로고침하거나 창을 닫으면 사라져요. 로그인하면 계정에 안전하게 저장돼요!`
+          setMessages((m) => [...m, { role: 'assistant', content: note }])
+        }
       }
     } catch (e) {
       // 429(속도제한/한도)·503(모델 과부하) → 서버가 준 친절 안내를 그대로 보여준다
