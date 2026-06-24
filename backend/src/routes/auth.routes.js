@@ -10,11 +10,16 @@ import {
   publicUser,
 } from '../lib/auth.js'
 import { validateEmail, validateNickname, validatePassword } from '../lib/validators.js'
+import { rateLimit } from '../middleware/rateLimit.js'
 
 const router = Router()
 
+// 인증 엔드포인트 속도 제한 — 무차별 대입/계정 스터핑 완화
+const loginLimiter = rateLimit({ windowMs: 5 * 60_000, max: 10, message: '로그인 시도가 너무 많아요. 잠시 후 다시 시도해 주세요.' })
+const registerLimiter = rateLimit({ windowMs: 10 * 60_000, max: 6, message: '요청이 너무 많아요. 잠시 후 다시 시도해 주세요.' })
+
 // 회원가입: 이메일 중복 확인 → bcrypt 해싱 → 생성 → JWT 쿠키 발급
-router.post('/register', async (req, res, next) => {
+router.post('/register', registerLimiter, async (req, res, next) => {
   try {
     const email = String(req.body?.email ?? '').trim().toLowerCase()
     const password = String(req.body?.password ?? '')
@@ -53,7 +58,7 @@ router.post('/register', async (req, res, next) => {
 })
 
 // 로그인: 사용자 조회 → bcrypt 비교 → JWT 쿠키 발급
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginLimiter, async (req, res, next) => {
   try {
     const email = String(req.body?.email ?? '').trim().toLowerCase()
     const password = String(req.body?.password ?? '')
@@ -84,7 +89,7 @@ router.post('/login', async (req, res, next) => {
 //  - 이미 비밀번호까지 있는 계정 → 바로 로그인
 //  - 처음 오는(회원가입 안 된) 계정 → password 없이 오면 { needPassword } 응답 →
 //    프론트가 "사이트용 비밀번호"를 받아 다시 보내면 이메일+비번 회원으로 저장 후 로그인
-router.post('/google', async (req, res, next) => {
+router.post('/google', loginLimiter, async (req, res, next) => {
   try {
     if (!env.googleClientId) {
       return res

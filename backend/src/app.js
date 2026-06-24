@@ -1,5 +1,6 @@
 import express from 'express'
 import cors from 'cors'
+import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -9,6 +10,19 @@ import routes from './routes/index.js'
 import { notFound, errorHandler } from './middleware/errorHandler.js'
 
 const app = express()
+
+// Render 등 프록시 뒤에서 실제 클라이언트 IP(X-Forwarded-For)를 신뢰 — 속도 제한 정확도용
+app.set('trust proxy', 1)
+
+// 보안 헤더 (X-Frame-Options·HSTS·noSniff 등).
+// CSP·COEP 는 외부 이미지(네이버 CDN)·구글 OAuth 팝업을 깨뜨릴 수 있어 비활성화한다.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }),
+)
 
 // 프론트엔드(Vite)와 통신 허용 + HttpOnly 쿠키 주고받기 위해 credentials 활성화
 // (단일 서비스 배포에선 같은 도메인이라 CORS가 사실상 필요 없지만, 분리 개발용으로 유지)

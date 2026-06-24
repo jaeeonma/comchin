@@ -15,13 +15,11 @@ function requireUser(req, res) {
   return userId
 }
 
-// 번호 가운데 약 절반을 * 로 가린다 (계좌/카드 조회용)
+// 표시용 — 끝 4자리만 노출한다. (보안: 전체 번호는 DB에 저장하지 않으므로
+// 입력이 끝4자리여도, 과거 전체번호 데이터여도 동일하게 끝4자리만 보여준다.)
 function maskNumber(num) {
-  const s = String(num).replace(/\D/g, '')
-  if (s.length <= 4) return '*'.repeat(s.length)
-  const maskCount = Math.ceil(s.length / 2)
-  const start = Math.floor((s.length - maskCount) / 2)
-  return s.slice(0, start) + '*'.repeat(maskCount) + s.slice(start + maskCount)
+  const s = String(num ?? '').replace(/\D/g, '')
+  return s ? `•••• ${s.slice(-4)}` : ''
 }
 
 const publicMethod = (m) => ({
@@ -69,8 +67,10 @@ router.post('/', async (req, res, next) => {
       return res.status(400).json({ message: formError })
     }
 
+    // 보안: 전체 카드/계좌번호는 저장하지 않고 끝 4자리만 보관 (Luhn 등 검증은 위에서 전체로 끝냄)
+    const last4 = number.slice(-4)
     const created = await prisma.paymentMethod.create({
-      data: { userId, type, bank, number, holderName, phone },
+      data: { userId, type, bank, number: last4, holderName, phone },
     })
     res.status(201).json({ method: publicMethod(created) })
   } catch (err) {
