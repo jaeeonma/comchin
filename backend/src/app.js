@@ -21,6 +21,9 @@ app.use(
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    // 기본값(same-origin)은 구글 로그인 팝업이 opener와 통신하지 못하게 막아
+    // 팝업이 빈 화면에서 멈춘다. 팝업만 허용해 OAuth가 동작하도록 한다.
+    crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
   }),
 )
 
