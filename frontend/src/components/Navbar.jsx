@@ -27,6 +27,7 @@ const categoryMenu = [
   },
   { to: '/guide/tips', label: 'PC 고민 해결' },
   { to: '/guide/parts', label: '부품 이야기' },
+  { to: '/support', label: '1:1 상담' },
 ]
 
 // 공용 아이콘

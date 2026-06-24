@@ -63,7 +63,6 @@ export const categories = [
   { key: 'gpu', label: '그래픽카드', icon: '🎞️', image: '/images/categories/gpu.png' },
   { key: 'memory', label: '메모리', icon: '📦', image: '/images/categories/memory.png' },
   { key: 'diy', label: '직접 견적', icon: '🛠️', image: '/images/categories/diy.png' },
-  { key: 'support', label: '1:1 상담', icon: '💬', image: null },
 ]
 
 // 추천 견적 카드 (사진·사양은 상품 카드와 동일한 형식 + 상세 페이지 연결용 구성표/설명)
