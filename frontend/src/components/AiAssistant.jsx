@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useBuildStore, CATEGORIES } from '../store/useBuildStore'
 import { useAiStore } from '../store/useAiStore'
 import { useAuthStore } from '../store/useAuthStore'
@@ -40,8 +40,24 @@ export default function AiAssistant() {
   const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H })
   const [pos, setPos] = useState(null)
   const [moved, setMoved] = useState(false) // 한 번이라도 옮겼는지 → 닫기 X 노출
-  const panelRef = useRef(null)
-  const dragRef = useRef(null) // 진행 중인 드래그/리사이즈 정보
+
+  // 이동/크기조절은 데스크톱(>=640px)에서만 — 모바일에서는 끈다
+  const [isDesktop, setIsDesktop] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 640px)')
+    const onChange = () => setIsDesktop(mq.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  // 창을 기본 상태(우하단 도킹·기본 크기)로 되돌린다
+  const resetWindow = () => {
+    setPos(null)
+    setSize({ w: DEFAULT_W, h: DEFAULT_H })
+    setMoved(false)
+  }
 
   // 메시지 추가 시 맨 아래로 스크롤
   useEffect(() => {
@@ -67,25 +83,23 @@ export default function AiAssistant() {
   }, [pos, size.w])
 
   // 드래그(이동)/리사이즈 공통 시작 — 진행 중에만 전역 리스너를 붙였다 뗀다.
-  const beginInteraction = (e, kind, dir) => {
+  // (ref를 읽지 않고, 이벤트 대상에서 패널 DOM을 찾아 시작 좌표를 얻는다)
+  const beginInteraction = useCallback((e, kind, dir) => {
     e.preventDefault()
-    const r = panelRef.current.getBoundingClientRect()
-    dragRef.current = {
-      kind, dir,
-      startX: e.clientX, startY: e.clientY,
-      left: r.left, top: r.top, w: r.width, h: r.height,
-    }
+    const panel = e.currentTarget.closest('[data-ai-panel]')
+    if (!panel) return
+    const r = panel.getBoundingClientRect()
+    // 진행 중 드래그 정보는 클로저 지역변수로 보관(리렌더 무관)
+    const s = { startX: e.clientX, startY: e.clientY, left: r.left, top: r.top, w: r.width, h: r.height }
     // 어떤 조작이든 자유 위치로 전환(도킹 해제). 단, 닫기 X는 "이동"했을 때만 띄운다.
     setPos({ left: r.left, top: r.top })
     setSize({ w: r.width, h: r.height })
     if (kind === 'move') setMoved(true)
 
     const onMove = (ev) => {
-      const s = dragRef.current
-      if (!s) return
       const dx = ev.clientX - s.startX
       const dy = ev.clientY - s.startY
-      if (s.kind === 'move') {
+      if (kind === 'move') {
         const maxLeft = window.innerWidth - 80
         const maxTop = window.innerHeight - 60
         setPos({
@@ -94,13 +108,13 @@ export default function AiAssistant() {
         })
       } else {
         let { left, top, w, h } = s
-        if (s.dir.includes('e')) w = s.w + dx
-        if (s.dir.includes('s')) h = s.h + dy
-        if (s.dir.includes('w')) { w = s.w - dx; left = s.left + dx }
-        if (s.dir.includes('n')) { h = s.h - dy; top = s.top + dy }
+        if (dir.includes('e')) w = s.w + dx
+        if (dir.includes('s')) h = s.h + dy
+        if (dir.includes('w')) { w = s.w - dx; left = s.left + dx }
+        if (dir.includes('n')) { h = s.h - dy; top = s.top + dy }
         // 최소 크기 보정 (좌/상단 핸들이면 위치도 같이 보정)
-        if (w < MIN_W) { if (s.dir.includes('w')) left = s.left + (s.w - MIN_W); w = MIN_W }
-        if (h < MIN_H) { if (s.dir.includes('n')) top = s.top + (s.h - MIN_H); h = MIN_H }
+        if (w < MIN_W) { if (dir.includes('w')) left = s.left + (s.w - MIN_W); w = MIN_W }
+        if (h < MIN_H) { if (dir.includes('n')) top = s.top + (s.h - MIN_H); h = MIN_H }
         // 화면 안으로 제한
         w = Math.min(w, window.innerWidth - 16)
         h = Math.min(h, window.innerHeight - 16)
@@ -109,7 +123,6 @@ export default function AiAssistant() {
       }
     }
     const onUp = () => {
-      dragRef.current = null
       document.body.style.userSelect = ''
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
@@ -117,7 +130,7 @@ export default function AiAssistant() {
     document.body.style.userSelect = 'none'
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
-  }
+  }, [])
 
   const send = async (text) => {
     const content = (text ?? input).trim()
@@ -165,10 +178,16 @@ export default function AiAssistant() {
     }
   }
 
-  // 패널 위치/크기 스타일 — 도킹(pos null) vs 자유 위치
-  const panelStyle = pos
-    ? { left: pos.left, top: pos.top, width: size.w, height: size.h }
-    : { right: 24, bottom: bottomBar ? 192 : 96, width: size.w, height: size.h }
+  // 패널 위치/크기 스타일 — 데스크톱에서 옮겼으면 자유 위치, 그 외엔 우하단 도킹(기본 크기)
+  const panelStyle =
+    isDesktop && pos
+      ? { left: pos.left, top: pos.top, width: size.w, height: size.h }
+      : {
+          right: 24,
+          bottom: bottomBar ? 192 : 96,
+          width: isDesktop ? size.w : DEFAULT_W,
+          height: isDesktop ? size.h : DEFAULT_H,
+        }
 
   // 리사이즈 핸들 (가장자리 4 + 모서리 4)
   const HANDLES = [
@@ -211,18 +230,24 @@ export default function AiAssistant() {
       {/* 채팅 패널 — 헤더를 잡고 이동, 가장자리를 잡고 크기 조절 */}
       {open && (
         <div
-          ref={panelRef}
+          data-ai-panel
           style={{ ...panelStyle, maxWidth: 'calc(100vw - 16px)', maxHeight: 'calc(100vh - 16px)' }}
           className="fixed z-40 flex flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl"
         >
-          {/* 헤더 (드래그 핸들) */}
+          {/* 헤더 (데스크톱에서 드래그 핸들) */}
           <div
-            onMouseDown={(e) => {
-              // 버튼(닫기 X) 위에서 시작한 건 드래그로 보지 않는다
-              if (e.target.closest('[data-no-drag]')) return
-              beginInteraction(e, 'move')
-            }}
-            className="flex shrink-0 cursor-move select-none items-center gap-2 border-b border-border bg-surface-2/60 px-4 py-3"
+            onMouseDown={
+              isDesktop
+                ? (e) => {
+                    // 버튼(닫기 X) 위에서 시작한 건 드래그로 보지 않는다
+                    if (e.target.closest('[data-no-drag]')) return
+                    beginInteraction(e, 'move')
+                  }
+                : undefined
+            }
+            className={`flex shrink-0 select-none items-center gap-2 border-b border-border bg-surface-2/60 px-4 py-3 ${
+              isDesktop ? 'cursor-move' : ''
+            }`}
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/15 text-brand">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5">
@@ -233,12 +258,15 @@ export default function AiAssistant() {
               <p className="truncate text-sm font-bold text-text">컴친 AI 비서</p>
               <p className="truncate text-xs text-muted">견적·호환성·제품 상담</p>
             </div>
-            {/* 닫기 X — 창을 옮긴 뒤부터 노출(런처 버튼이 멀어지므로) */}
-            {moved && (
+            {/* 닫기 X — 창을 옮긴 뒤부터 노출(런처 버튼이 멀어지므로). 닫으면 원래 위치/크기로 리셋 */}
+            {isDesktop && moved && (
               <button
                 type="button"
                 data-no-drag
-                onClick={toggle}
+                onClick={() => {
+                  resetWindow()
+                  toggle()
+                }}
                 aria-label="AI 비서 닫기"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-surface hover:text-text"
               >
@@ -319,14 +347,15 @@ export default function AiAssistant() {
             </button>
           </form>
 
-          {/* 리사이즈 핸들 (가장자리·모서리) */}
-          {HANDLES.map((h) => (
-            <div
-              key={h.dir}
-              onMouseDown={(e) => beginInteraction(e, 'resize', h.dir)}
-              className={`absolute z-10 ${h.cls}`}
-            />
-          ))}
+          {/* 리사이즈 핸들 (데스크톱 전용 — 가장자리·모서리) */}
+          {isDesktop &&
+            HANDLES.map((h) => (
+              <div
+                key={h.dir}
+                onMouseDown={(e) => beginInteraction(e, 'resize', h.dir)}
+                className={`absolute z-10 ${h.cls}`}
+              />
+            ))}
         </div>
       )}
     </>
