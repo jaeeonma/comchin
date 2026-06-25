@@ -3,6 +3,8 @@ import { useBuildStore, CATEGORIES } from '../store/useBuildStore'
 import { useAiStore } from '../store/useAiStore'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSavedBuildStore } from '../store/useSavedBuildStore'
+import { useFavoriteStore } from '../store/useFavoriteStore'
+import { prebuiltPCs } from '../data/prebuiltPCs'
 import { apiAiChat } from '../api/ai'
 
 const CAT_LABEL = {
@@ -35,6 +37,8 @@ export default function AiAssistant() {
   const selectedParts = useBuildStore((s) => s.selectedParts)
   const user = useAuthStore((s) => s.user)
   const addBuild = useSavedBuildStore((s) => s.addBuild)
+  const toggleFav = useFavoriteStore((s) => s.toggle)
+  const isFav = useFavoriteStore((s) => s.isFavorite)
 
   // 창 크기/위치 — pos가 null이면 기본 위치(우하단 도킹), 값이 있으면 자유 위치(left/top px)
   const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H })
@@ -163,6 +167,22 @@ export default function AiAssistant() {
             ? `✅ 이 견적을 '${name}'(으)로 직접 견적에 저장해뒀어요.\n'직접 견적 → 저장한 견적'에서 언제든 불러와 담을 수 있어요. 🛠️`
             : `📌 이 견적을 '${name}'(으)로 담아뒀어요.\n⚠️ 다만 로그인을 안 하셔서, 새로고침하거나 창을 닫으면 사라져요. 로그인하면 계정에 안전하게 저장돼요!`
           setMessages((m) => [...m, { role: 'assistant', content: note }])
+        }
+        // AI가 추천 완본체를 저장 요청받았으면 즐겨찾기에 담는다 (완본체는 직접견적이 아니라 찜에 저장)
+        if (data?.savePc?.id) {
+          const pc = prebuiltPCs.find((p) => p.id === data.savePc.id)
+          if (pc) {
+            const already = isFav('pc', pc.id)
+            if (!already) {
+              toggleFav({ id: pc.id, type: 'pc', name: pc.name, image: pc.image, price: pc.price })
+            }
+            const note = already
+              ? `⭐ '${pc.name}'은(는) 이미 즐겨찾기에 있어요.`
+              : user
+                ? `⭐ '${pc.name}'을(를) 즐겨찾기에 저장했어요.\n상단 ♥(즐겨찾기)에서 언제든 볼 수 있어요!`
+                : `⭐ '${pc.name}'을(를) 즐겨찾기에 담아뒀어요.\n⚠️ 다만 로그인을 안 하셔서, 새로고침하면 사라져요. 로그인하면 계정에 저장돼요!`
+            setMessages((m) => [...m, { role: 'assistant', content: note }])
+          }
         }
       }
     } catch (e) {

@@ -316,6 +316,29 @@ function buildFromReply(reply, groundingParts) {
   return { name: 'PC', parts, price, caseImage: parts.case?.imageUrl ?? null }
 }
 
+// 완본체 저장 블록: 추천한 완성형 PC를 즐겨찾기에 저장할 때 본문 끝에 붙는 기계용 JSON.
+const SAVE_PC_RE = /===\s*SAVE_PC\s*===\s*([\s\S]*?)\s*===\s*END\s*===/i
+// 블록의 이름을 실제 완본체 목록과 대조해 식별(프론트가 id로 이미지까지 찾아 즐겨찾기에 담는다).
+function resolvePrebuiltSave(block) {
+  let data
+  try {
+    data = JSON.parse(block)
+  } catch {
+    return null
+  }
+  const name = String(data?.name ?? '').trim()
+  if (!name) return null
+  const target = normName(name)
+  const pc =
+    PREBUILTS.find((p) => normName(p.name) === target) ||
+    PREBUILTS.find((p) => {
+      const n = normName(p.name)
+      return n.length >= 6 && (n.includes(target) || target.includes(n))
+    })
+  if (!pc) return null
+  return { id: pc.id, name: pc.name, price: pc.price, categoryLabel: pc.categoryLabel }
+}
+
 // 예산형 견적 요청("80만원대 게이밍 PC")일 때, AI가 실제 DB 제품명으로 견적을 짤 수
 // 있도록 카테고리별 후보 부품(팔레트)을 근거로 제공한다. 예산을 카테고리별 상한으로 배분.
 const PALETTE_CATS = ['CPU', 'MOTHERBOARD', 'MEMORY', 'GPU', 'SSD', 'PSU', 'CASE', 'CPU_COOLER']
@@ -357,6 +380,11 @@ const SYSTEM = `너는 PC 쇼핑몰 "컴친(컴퓨터 친구)"의 AI 비서야. 
   {"name":"게이밍 PC","items":[{"category":"CPU","name":"<컴친 DB 제품명 그대로>"},{"category":"MOTHERBOARD","name":"..."},{"category":"MEMORY","name":"..."},{"category":"GPU","name":"..."},{"category":"SSD","name":"..."},{"category":"PSU","name":"..."},{"category":"CASE","name":"..."}]}
   ===END===
   블록 규칙: (a) category는 CPU, CPU_COOLER, MEMORY, MOTHERBOARD, GPU, SSD, HDD, PSU, CASE 중에서만 쓴다. (b) name은 위 "컴친 DB 제품" 목록에 있는 제품명을 토씨 하나 안 틀리게 그대로 복사한다(임의로 지어내거나 변형 금지). 목록에 없는 제품은 블록에 넣지 마. (c) 사용자에게 되묻는 중이거나, 완본체만 추천하거나, 단일 부품 질문에 답할 때는 이 블록을 절대 넣지 마. (d) name 칸을 채울 실제 DB 제품이 없으면 블록 자체를 생략해.
+- [완본체 저장 블록] 사용자가 추천한 완본체(완성형 PC)를 "저장/찜/즐겨찾기/담아줘"라고 하면, 완본체는 직접 견적처럼 부품별로는 저장되지 않지만 '즐겨찾기'에는 저장할 수 있어. "즐겨찾기에 저장해드릴게요"라고 답한 뒤, 사람이 읽는 설명 끝에 아래 블록을 딱 한 번 덧붙여(화면에 안 보임). 절대 "저장할 수 없다"고 거절하지 마.
+  ===SAVE_PC===
+  {"name":"<저장할 완본체의 정확한 이름 — 위 \\"컴친 완본체\\" 목록 그대로>"}
+  ===END===
+  규칙: name은 반드시 "컴친 완본체" 목록에 실제로 있는 이름을 그대로 복사. 어떤 완본체를 말하는지 불명확하면 먼저 어떤 제품인지 되물어보고, 명확할 때만 블록을 넣어.
 - 모르는 건 솔직히 말하되, 위 DB 제품을 모른다고 하지는 마. 과장·허위 정보 금지.
 - 답변은 너무 길지 않게, 필요하면 짧은 목록/단계로.`
 
@@ -441,6 +469,19 @@ router.post('/chat', async (req, res, next) => {
     // 저장 가능한 견적으로 변환한다. 해석 실패 시 savedBuild는 null(일반 답변만).
     let text = reply || ''
     let savedBuild = null
+    let savePc = null
+
+    // 완본체 저장 블록 — 추천한 완성형 PC를 즐겨찾기에 저장 (먼저 떼어낸다)
+    const pm = text.match(SAVE_PC_RE)
+    if (pm) {
+      text = text.replace(SAVE_PC_RE, '').trim()
+      try {
+        savePc = resolvePrebuiltSave(pm[1])
+      } catch {
+        savePc = null
+      }
+    }
+
     const m = text.match(BUILD_RE)
     if (m) {
       text = text.replace(BUILD_RE, '').trim()
@@ -451,7 +492,8 @@ router.post('/chat', async (req, res, next) => {
       }
     }
     // 블록이 없거나 해석 실패해도, 본문에 인용된 DB 제품으로 견적을 구성(폴백)
-    if (!savedBuild) {
+    // 단, 완본체 저장(savePc) 의도일 땐 견적 자동저장과 겹치지 않게 건너뛴다.
+    if (!savedBuild && !savePc) {
       try {
         savedBuild = buildFromReply(text, parts)
       } catch {
@@ -462,6 +504,7 @@ router.post('/chat', async (req, res, next) => {
     res.json({
       reply: text || '죄송해요, 답변을 만들지 못했어요. 다시 한 번 물어봐 주세요.',
       savedBuild,
+      savePc,
     })
   } catch (err) {
     if (err?.message === 'GEMINI_NOT_CONFIGURED') {
