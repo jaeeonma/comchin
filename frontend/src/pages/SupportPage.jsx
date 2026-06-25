@@ -124,7 +124,8 @@ function CustomerView() {
   }
 
   return (
-    <div className="flex h-[70vh] flex-col overflow-hidden rounded-2xl border border-border bg-surface">
+    // 모바일: 주소창 변화를 반영하는 dvh로 보이는 화면에 맞춤. 데스크톱: 고정 비율.
+    <div className="flex h-[calc(100dvh-13.5rem)] min-h-88 flex-col overflow-hidden rounded-2xl border border-border bg-surface sm:h-[70vh] sm:min-h-0">
       <div className="border-b border-border bg-surface-2/60 px-4 py-3">
         <p className="text-sm font-bold text-text">운영자와 1:1 상담</p>
         <p className="text-xs text-muted">AI가 아니라 운영자가 직접 확인하고 답해드려요. (답변까지 시간이 걸릴 수 있어요)</p>
@@ -204,7 +205,7 @@ function AdminView() {
   const waiting = threads.filter((t) => t.needsReply).length
 
   return (
-    <div className="flex h-[72vh] overflow-hidden rounded-2xl border border-border bg-surface">
+    <div className="flex h-[calc(100dvh-13.5rem)] min-h-96 overflow-hidden rounded-2xl border border-border bg-surface sm:h-[72vh] sm:min-h-0">
       {/* 좌: 스레드 목록 (모바일에서는 스레드 선택 시 숨김) */}
       <aside
         className={`w-full shrink-0 flex-col border-r border-border sm:flex sm:w-72 ${
