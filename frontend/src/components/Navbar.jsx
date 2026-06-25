@@ -114,7 +114,7 @@ export default function Navbar() {
           </button>
 
           <Link to="/" aria-label="컴친 홈">
-            <Logo className="h-8" />
+            <Logo className="h-10" />
           </Link>
 
           <div className="flex items-center gap-1">
@@ -159,7 +159,7 @@ export default function Navbar() {
             {/* 1줄: 가운데 로고 + 왼쪽 AI 배너 + 오른쪽 계정 메뉴 */}
             <div className="relative flex items-center justify-center py-2.5">
               <Link to="/">
-                <Logo className="h-9" />
+                <Logo className="h-12" />
               </Link>
 
               <button
