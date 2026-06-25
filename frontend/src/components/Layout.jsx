@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet } from 'react-router-dom'
 import Navbar from './Navbar'
+import Footer from './Footer'
 import AiAssistant from './AiAssistant'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSavedBuildStore } from '../store/useSavedBuildStore'
@@ -38,9 +39,7 @@ export default function Layout() {
       <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-10">
         <Outlet />
       </main>
-      <footer className="border-t border-border py-6 text-center text-sm text-muted">
-        컴친 — 컴퓨터 친구 · 학교 포트폴리오 프로젝트
-      </footer>
+      <Footer />
       <AiAssistant />
     </div>
   )
