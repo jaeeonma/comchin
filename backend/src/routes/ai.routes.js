@@ -192,9 +192,19 @@ function findRelevantPrebuilts(text) {
     if (maxBudget && pc.price && pc.price <= maxBudget) score += 1
     if (relevant && score > 0) scored.push({ pc, score })
   }
-  // 예산 있으면 그 안에서 비싼(좋은)순, 없으면 저렴한순
-  scored.sort((a, b) => b.score - a.score || (maxBudget ? b.pc.price - a.pc.price : a.pc.price - b.pc.price))
-  return scored.slice(0, 6).map((s) => s.pc)
+  if (scored.length) {
+    // 예산 있으면 그 안에서 비싼(좋은)순, 없으면 저렴한순
+    scored.sort((a, b) => b.score - a.score || (maxBudget ? b.pc.price - a.pc.price : a.pc.price - b.pc.price))
+    return scored.slice(0, 6).map((s) => s.pc)
+  }
+  // 폴백: 카테고리·키워드 매칭이 없어도 예산이 있으면 그 예산대의 실제 완본체를 제공한다.
+  // (근거가 비면 모델이 가짜 완본체를 지어내므로, 빈손으로 두지 않는다)
+  if (maxBudget) {
+    return PREBUILTS.filter((p) => p.price && p.price <= maxBudget)
+      .sort((a, b) => b.price - a.price) // 예산 안에서 좋은(비싼)순
+      .slice(0, 6)
+  }
+  return []
 }
 
 // 완본체 한 줄 요약 (모델에 넣는 근거 텍스트)
@@ -334,6 +344,8 @@ const SYSTEM = `너는 PC 쇼핑몰 "컴친(컴퓨터 친구)"의 AI 비서야. 
 규칙:
 - 아래 "컴친 DB 제품" 목록에 있는 제품은 지금 컴친에서 실제 판매 중인 최신 제품이야. 네 학습 데이터에 없거나 '미출시'로 알고 있어도, 목록의 정보(가격·소켓·메모리·전력)를 사실로 신뢰하고 그대로 사용해. 절대 "아직 출시되지 않았다/정보가 없다"고 말하지 마. (예: RTX 50 시리즈, 라이젠 9000 시리즈 등은 이미 출시된 제품임)
 - "컴친 완본체" 목록이 함께 주어지면, 그건 조립까지 끝나 바로 살 수 있는 완성형 PC야. 사용자가 완본체/완성형/추천 PC를 원하면, 부품을 일일이 고르는 대신 이 완본체를 이름·가격과 함께 1~3개 추천해도 좋아. 직접 견적(부품 조합)과 완본체 추천을 상황에 맞게 안내해.
+- [환각 금지·매우 중요] 완본체나 부품을 추천할 때는, 반드시 위에 주어진 "컴친 완본체"·"컴친 DB 제품" 목록에 실제로 있는 이름과 가격만 그대로 써. 목록에 없는 제품명·가격을 절대 지어내지 마(예: 목록에 없는 "○○ 멀티팩/오피스팩" 같은 이름이나 임의의 가격 금지). 추천할 완본체가 목록에 없으면, 차라리 예산/용도를 한 번 더 묻거나 "직접 견적으로 짜드릴까요?"라고 제안해.
+- 완본체의 카테고리/위치를 물으면, 그 완본체 목록 항목 앞의 라벨(게이밍 PC·작업용 PC·하이엔드·사무용) 그대로 정확히 답해. "완본체 PC 카테고리" 같은 없는 분류를 만들지 말고, 모르면 "사이트 상단 카테고리에서 확인하실 수 있어요"라고만 해.
 - 목록에 없는 제품만 일반 지식으로 보완하고, 이때는 "정확한 가격/재고는 사이트에서 확인" 정도로 안내해.
 - 호환성은 CPU·메인보드 소켓 일치, 메모리(DDR4/DDR5) 세대 일치, 파워 용량(부품 TDP 합 대비 여유)을 기준으로 설명해.
 - 가격은 원화(원)로. "N만원"은 N×10,000원이야 (예: 20만원=200,000원, 80만원=800,000원). 단위를 절대 헷갈리지 마.
@@ -373,20 +385,28 @@ router.post('/chat', async (req, res, next) => {
       return res.status(400).json({ message: '메시지를 입력해주세요.' })
     }
 
+    // 되묻기(예산·용도 질문) 뒤 짧은 답변에는 검색 키워드가 없어, 마지막 메시지만 보면
+    // 근거를 못 찾아 모델이 제품·가격을 지어낼 수 있다. 최근 사용자 발화 몇 개를 합쳐 근거를 찾는다.
+    const contextText = messages
+      .filter((m) => m?.role === 'user')
+      .slice(-3)
+      .map((m) => String(m.content ?? ''))
+      .join('  ')
+
     // 근거 데이터: 관련 부품 + 관련 완본체 + (있으면) 사용자의 현재 견적
-    const parts = await findRelevantParts(lastUser)
+    const parts = await findRelevantParts(contextText)
     // 견적/추천 의도인데 카테고리가 부족하면, 견적을 짤 수 있도록 카테고리별 후보를 채운다
-    const buildIntent = !!detectPcCategory(lastUser) || /견적|추천|맞춰|조립|컴퓨터|풀세트|세트/.test(lastUser)
+    const buildIntent = !!detectPcCategory(contextText) || /견적|추천|맞춰|조립|컴퓨터|풀세트|세트/.test(contextText)
     if (buildIntent && new Set(parts.map((p) => p.category)).size < 4) {
       const seen = new Set(parts.map((p) => p.name))
-      for (const p of await findBuildPalette(lastUser)) {
+      for (const p of await findBuildPalette(contextText)) {
         if (!seen.has(p.name)) {
           parts.push(p)
           seen.add(p.name)
         }
       }
     }
-    const pcs = findRelevantPrebuilts(lastUser)
+    const pcs = findRelevantPrebuilts(contextText)
     const build = Array.isArray(req.body?.build) ? req.body.build.slice(0, 20) : []
 
     let grounding = ''
