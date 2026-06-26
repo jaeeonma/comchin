@@ -209,6 +209,7 @@ export function buildPartTips(part) {
       const vram = vramOf(part)
       tips.push({ tag: '해상도', text: `${name.split('(')[0].trim() || '이 그래픽카드'}는 ${gpuResolution(name)} 게이밍에 어울리는 편이에요.` })
       if (vram) tips.push({ tag: '메모리', text: `VRAM ${vram}GB예요. ${vram >= 16 ? '고해상도·고텍스처·일부 작업에도 여유가 있는 편' : vram >= 12 ? 'QHD 고옵션까지 무난한 편' : 'FHD~QHD에 적합한 편'}이에요.` })
+      if (vram && vram <= 8) tips.push({ tag: '주의', text: 'VRAM 8GB는 일부 최신 게임의 고텍스처·고해상도 옵션에선 빠듯할 수 있어요.' })
       const need = recommendedPsuForGpu(name)
       tips.push({ tag: '전력', text: `이 GPU엔 약 ${need}W 이상 파워를 권장해요. 보조전원 커넥터 종류도 확인하세요.` })
       if (part.tdp >= 300) tips.push({ tag: '주의', text: `소비전력 ${part.tdp}W로 큰 편이에요. 파워 여유와 케이스 통풍이 중요합니다.` })
@@ -372,6 +373,10 @@ export function interactionTips(category, part, selected, prev) {
       tips.push({ tag: '다음', text: `이 메인보드는 ${motherboard.socket} 소켓이에요. 같은 소켓 CPU를 고르세요.` })
     }
   }
+  // 내장그래픽 없는 CPU(F 모델)인데 그래픽카드가 아직 없으면 화면 출력 불가
+  if (category === 'cpu' && isNoIGPU(part.name) && !gpu) {
+    tips.push({ tag: '주의', text: '내장 그래픽이 없는 CPU(F 모델)예요. 화면 출력을 위해 그래픽카드가 꼭 필요합니다.' })
+  }
   // 메모리 ↔ 메인보드 규격
   if (category === 'memory' || category === 'motherboard') {
     const mt = memory?.memoryType
@@ -401,6 +406,9 @@ export function interactionTips(category, part, selected, prev) {
     if (part.tdp >= 300) tips.push({ tag: '전력', text: '전력이 큰 그래픽카드예요. 보조전원 커넥터와 케이스 통풍을 꼭 확인하세요.' })
     if (pcCase?.specs?.gpuMax) tips.push({ tag: '호환성', text: `케이스 GPU 장착 한계는 ${pcCase.specs.gpuMax}예요. 이 그래픽카드 길이가 그 안에 드는지 확인하세요.` })
     else tips.push({ tag: '호환성', text: 'GPU 길이가 케이스보다 길면 안 들어가요. 케이스 장착 길이도 확인하세요.' })
+    const vg = vramOf(part)
+    if (vg && vg <= 8) tips.push({ tag: '주의', text: 'VRAM 8GB라 최신 게임 고옵션·QHD 이상에선 다소 빠듯할 수 있어요.' })
+    tips.push({ tag: '모니터', text: `${gpuResolution(part.name)}에 어울리는 등급이에요. 모니터 해상도·주사율도 여기에 맞추면 제값을 합니다.` })
   }
   // 쿨러 ↔ CPU 발열
   if (category === 'cpuCooler' && cpu) {
@@ -462,6 +470,13 @@ export function completionTips(selected) {
     if (diff >= 2) tips.push({ tag: '균형', text: '완성 구성이 GPU 쪽으로 무게가 실려 있어요. 고해상도 게임에 유리합니다.' })
     else if (diff <= -2) tips.push({ tag: '균형', text: '완성 구성이 CPU 쪽으로 무게가 실려 있어요. 작업·멀티태스킹에 유리합니다.' })
   }
+  // 모니터 페어링 안내 (GPU 등급 → 어울리는 해상도)
+  if (selected.gpu) {
+    tips.push({ tag: '모니터', text: `이 구성은 ${gpuResolution(selected.gpu.name)} 게이밍에 어울려요. 모니터도 그 해상도·주사율로 맞추면 제값을 합니다.` })
+  }
+  // 가격대 등급 한마디
+  const tierLabel = total >= 3000000 ? '하이엔드' : total >= 1500000 ? '상급' : total >= 800000 ? '메인스트림' : '입문'
+  tips.push({ tag: '등급', text: `합계 기준 ${tierLabel} 가격대 구성이에요. 용도에 잘 맞는지 한 번 더 점검해 보세요.` })
 
   // 비슷한 완성형 PC 추천 (가격 근접 + 가능하면 같은 분류)
   const rec = recommendSimilar(selected, total)
