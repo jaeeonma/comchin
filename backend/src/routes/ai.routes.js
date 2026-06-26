@@ -458,7 +458,7 @@ router.post('/chat', async (req, res, next) => {
     if (build.length) {
       grounding +=
         `${grounding ? '\n\n' : ''}[사용자가 현재 담은 견적]\n` +
-        build.map((b) => `${b.category ?? ''}: ${b.name ?? ''} (${won(b.price)})`).join('\n')
+        build.map((b) => `${b?.category ?? ''}: ${b?.name ?? ''} (${won(b?.price)})`).join('\n')
     }
 
     // 그라운딩은 systemInstruction이 아니라 "마지막 사용자 메시지"에 붙여야 모델이 확실히 활용한다.

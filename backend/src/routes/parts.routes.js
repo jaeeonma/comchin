@@ -9,9 +9,15 @@ const LIST_SELECT = {
   id: true, category: true, name: true, brand: true, price: true,
   tdp: true, imageUrl: true, socket: true, memoryType: true, specs: true,
 }
+// 허용된 카테고리(enum)만 받는다 — 잘못된 값·객체 주입(Prisma 연산자 주입) 차단
+const PART_CATEGORIES = new Set([
+  'CPU', 'CPU_COOLER', 'MEMORY', 'MOTHERBOARD', 'GPU', 'SSD', 'HDD', 'PSU', 'CASE',
+])
 router.get('/', async (req, res, next) => {
   try {
-    const { category } = req.query
+    // 문자열이면서 화이트리스트에 있는 값만 필터로 인정. 그 외(객체/배열/오타)는 전체 조회.
+    const raw = req.query.category
+    const category = typeof raw === 'string' && PART_CATEGORIES.has(raw) ? raw : null
     const parts = await prisma.part.findMany({
       where: category ? { category } : undefined,
       orderBy: [{ category: 'asc' }, { price: 'asc' }],
