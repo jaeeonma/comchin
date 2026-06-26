@@ -292,11 +292,20 @@ async function resolveBuild(block) {
     const found = await findPartByName(enumCat, name)
     if (found) parts[key] = found
   }
-  // 신뢰 기준: CPU 포함 + 3개 이상 실제 부품으로 해석됐을 때만 저장 견적으로 인정
-  if (!parts.cpu || Object.keys(parts).length < 3) return null
+  // 완성된 PC만 저장으로 인정 — 부품 몇 개로 가격만 맞춘 미완성 견적은 거른다.
+  if (!isCompleteBuild(parts)) return null
   const price = Object.values(parts).reduce((s, p) => s + (p.price ?? 0), 0)
   const name = (String(data?.name ?? '').trim().slice(0, 40)) || 'PC'
   return { name, parts, price, caseImage: parts.case?.imageUrl ?? null }
+}
+
+// 저장 가능한 "완성형 견적" 판정: 핵심 부품(CPU·메인보드·메모리·파워)이 모두 있고 5개 이상.
+// (부품 2~3개로 예산만 맞춘 미완성 견적이 강제 저장되는 것을 막는다)
+const BUILD_ESSENTIALS = ['cpu', 'motherboard', 'memory', 'psu']
+function isCompleteBuild(parts) {
+  if (!parts || typeof parts !== 'object') return false
+  if (BUILD_ESSENTIALS.some((k) => !parts[k])) return false
+  return Object.keys(parts).length >= 5
 }
 
 // 폴백: AI가 견적 블록을 안 넣었어도, 답변 본문에 "그대로 인용된" 컴친 DB 제품명을
@@ -311,7 +320,7 @@ function buildFromReply(reply, groundingParts) {
     const n = normName(p.name)
     if (n.length >= 6 && replyN.includes(n)) parts[key] = p // 본문이 이 제품을 그대로 인용
   }
-  if (!parts.cpu || Object.keys(parts).length < 3) return null
+  if (!isCompleteBuild(parts)) return null
   const price = Object.values(parts).reduce((s, p) => s + (p.price ?? 0), 0)
   return { name: 'PC', parts, price, caseImage: parts.case?.imageUrl ?? null }
 }
@@ -379,7 +388,7 @@ const SYSTEM = `너는 PC 쇼핑몰 "컴친(컴퓨터 친구)"의 AI 비서야. 
   ===BUILD===
   {"name":"게이밍 PC","items":[{"category":"CPU","name":"<컴친 DB 제품명 그대로>"},{"category":"MOTHERBOARD","name":"..."},{"category":"MEMORY","name":"..."},{"category":"GPU","name":"..."},{"category":"SSD","name":"..."},{"category":"PSU","name":"..."},{"category":"CASE","name":"..."}]}
   ===END===
-  블록 규칙: (a) category는 CPU, CPU_COOLER, MEMORY, MOTHERBOARD, GPU, SSD, HDD, PSU, CASE 중에서만 쓴다. (b) name은 위 "컴친 DB 제품" 목록에 있는 제품명을 토씨 하나 안 틀리게 그대로 복사한다(임의로 지어내거나 변형 금지). 목록에 없는 제품은 블록에 넣지 마. (c) 사용자에게 되묻는 중이거나, 완본체만 추천하거나, 단일 부품 질문에 답할 때는 이 블록을 절대 넣지 마. (d) name 칸을 채울 실제 DB 제품이 없으면 블록 자체를 생략해.
+  블록 규칙: (a) category는 CPU, CPU_COOLER, MEMORY, MOTHERBOARD, GPU, SSD, HDD, PSU, CASE 중에서만 쓴다. (b) name은 위 "컴친 DB 제품" 목록에 있는 제품명을 토씨 하나 안 틀리게 그대로 복사한다(임의로 지어내거나 변형 금지). 목록에 없는 제품은 블록에 넣지 마. (c) 사용자에게 되묻는 중이거나, 완본체만 추천하거나, 단일 부품 질문에 답할 때는 이 블록을 절대 넣지 마. (d) name 칸을 채울 실제 DB 제품이 없으면 블록 자체를 생략해. (e) [완성 필수] 견적은 반드시 '완성된 PC'여야 한다. CPU·메인보드·메모리·그래픽카드·SSD·파워·케이스를 모두 포함해라(쿨러 권장). 예산을 맞출 때는 절대로 부품 개수를 줄이지 말고, 각 부품의 등급(성능·가격)을 올리거나 내려서 맞춰라. 예: 300~350만원이면 부품 2~3개만 비싸게 넣지 말고, 모든 카테고리를 고사양으로 채워 합계를 맞춰라. 핵심 부품(CPU·메인보드·메모리·파워)이 빠지거나 부품이 5개 미만이면 블록을 아예 넣지 마.
 - [완본체 저장 블록] 사용자가 추천한 완본체(완성형 PC)를 "저장/찜/즐겨찾기/담아줘"라고 하면, 완본체는 직접 견적처럼 부품별로는 저장되지 않지만 '즐겨찾기'에는 저장할 수 있어. "즐겨찾기에 저장해드릴게요"라고 답한 뒤, 사람이 읽는 설명 끝에 아래 블록을 딱 한 번 덧붙여(화면에 안 보임). 절대 "저장할 수 없다"고 거절하지 마.
   ===SAVE_PC===
   {"name":"<저장할 완본체의 정확한 이름 — 위 \\"컴친 완본체\\" 목록 그대로>"}
